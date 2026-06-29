@@ -299,6 +299,49 @@ select {
   gap: 8px;
 }
 
+.record-list {
+  display: grid;
+  gap: 10px;
+}
+
+.record-row {
+  align-items: stretch;
+  background: #f7f8f4;
+  border: 1px solid #dfe5dc;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+  padding: 10px 12px;
+}
+
+.user-record-row {
+  grid-template-columns: 1fr;
+}
+
+.record-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.record-meta span {
+  color: #637064;
+  font-size: 13px;
+}
+
+.check-row {
+  align-items: center;
+  color: #17211b;
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+}
+
+.check-row input {
+  min-height: 18px;
+  width: 18px;
+}
+
 .metric-grid {
   display: grid;
   gap: 10px;
@@ -415,6 +458,8 @@ select {
   .kiosk-services,
   .compact,
   .ticket-row,
+  .record-row,
+  .user-record-row,
   .status-metrics,
   .metric-grid {
     grid-template-columns: 1fr;

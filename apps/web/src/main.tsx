@@ -397,12 +397,18 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         </form>
       </Panel>
       <Panel title="Services" icon={<Ticket size={18} />}>
-        <div className="table-list">
+        <div className="record-list">
           {selectedBranch?.services.map((service) => (
-            <div key={service.id}>
-              <strong>{service.prefix}</strong>
-              <span>{localName(service, i18n.language)} · {analytics?.services.find((row) => row.serviceId === service.id)?.issued ?? 0} issued</span>
-            </div>
+            <ServiceEditor
+              key={service.id}
+              service={service}
+              issued={analytics?.services.find((row) => row.serviceId === service.id)?.issued ?? 0}
+              onSave={async (serviceId, body) => {
+                await api<Service>(`/admin/services/${serviceId}`, { method: "PATCH", body });
+                setMessage("Service updated");
+                await loadAdmin();
+              }}
+            />
           ))}
         </div>
         <form onSubmit={(event) => void createService(event)} className="form-grid inline-form">
@@ -412,12 +418,17 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         </form>
       </Panel>
       <Panel title="Counters" icon={<Monitor size={18} />}>
-        <div className="table-list">
+        <div className="record-list">
           {selectedBranch?.counters.map((counter) => (
-            <div key={counter.id}>
-              <strong>{localName(counter, i18n.language)}</strong>
-              <span>{counter.isOpen === false ? "Closed" : "Open"}</span>
-            </div>
+            <CounterEditor
+              key={counter.id}
+              counter={counter}
+              onSave={async (counterId, body) => {
+                await api<Counter>(`/admin/counters/${counterId}`, { method: "PATCH", body });
+                setMessage("Counter updated");
+                await loadAdmin();
+              }}
+            />
           ))}
         </div>
         <form onSubmit={(event) => void createCounter(event)} className="form-grid">
@@ -426,12 +437,17 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         </form>
       </Panel>
       <Panel title="Users" icon={<UserRound size={18} />}>
-        <div className="table-list">
+        <div className="record-list">
           {overview?.organization?.users.map((account) => (
-            <div key={account.id}>
-              <strong>{account.name}</strong>
-              <span>{account.role} · {account.email}</span>
-            </div>
+            <UserEditor
+              key={account.id}
+              account={account}
+              onSave={async (userId, body) => {
+                await api<User>(`/admin/users/${userId}`, { method: "PATCH", body });
+                setMessage("User updated");
+                await loadAdmin();
+              }}
+            />
           ))}
         </div>
         <form onSubmit={(event) => void createUser(event)} className="form-grid">
@@ -451,6 +467,117 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         </form>
       </Panel>
     </section>
+  );
+}
+
+function ServiceEditor({ service, issued, onSave }: { service: Service; issued: number; onSave: (serviceId: string, body: { nameEn: string; nameAr: string; isActive: boolean }) => Promise<void> }) {
+  const [name, setName] = useState(service.nameEn);
+  const [isActive, setIsActive] = useState(service.isActive !== false);
+
+  useEffect(() => {
+    setName(service.nameEn);
+    setIsActive(service.isActive !== false);
+  }, [service]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await onSave(service.id, { nameEn: name, nameAr: name, isActive });
+  }
+
+  return (
+    <form className="record-row" aria-label={`Edit service ${service.prefix}`} onSubmit={(event) => void submit(event)}>
+      <div className="record-meta">
+        <strong>{service.prefix}</strong>
+        <span>{issued} issued</span>
+      </div>
+      <label>
+        Name
+        <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required />
+      </label>
+      <label className="check-row">
+        <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+        Active
+      </label>
+      <button className="primary-button">Save</button>
+    </form>
+  );
+}
+
+function CounterEditor({ counter, onSave }: { counter: Counter; onSave: (counterId: string, body: { nameEn: string; nameAr: string; isOpen: boolean }) => Promise<void> }) {
+  const [name, setName] = useState(counter.nameEn);
+  const [isOpen, setIsOpen] = useState(counter.isOpen !== false);
+
+  useEffect(() => {
+    setName(counter.nameEn);
+    setIsOpen(counter.isOpen !== false);
+  }, [counter]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await onSave(counter.id, { nameEn: name, nameAr: name, isOpen });
+  }
+
+  return (
+    <form className="record-row" aria-label={`Edit counter ${counter.nameEn}`} onSubmit={(event) => void submit(event)}>
+      <div className="record-meta">
+        <strong>{counter.nameEn}</strong>
+        <span>{isOpen ? "Open" : "Closed"}</span>
+      </div>
+      <label>
+        Name
+        <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required />
+      </label>
+      <label className="check-row">
+        <input type="checkbox" checked={isOpen} onChange={(event) => setIsOpen(event.target.checked)} />
+        Open
+      </label>
+      <button className="primary-button">Save</button>
+    </form>
+  );
+}
+
+function UserEditor({ account, onSave }: { account: User; onSave: (userId: string, body: { name: string; role: string; password?: string }) => Promise<void> }) {
+  const [name, setName] = useState(account.name);
+  const [role, setRole] = useState(account.role);
+  const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    setName(account.name);
+    setRole(account.role);
+    setPassword("");
+  }, [account]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await onSave(account.id, { name, role, ...(password ? { password } : {}) });
+  }
+
+  return (
+    <form className="record-row user-record-row" aria-label={`Edit user ${account.email}`} onSubmit={(event) => void submit(event)}>
+      <div className="record-meta">
+        <strong>{account.email}</strong>
+        <span>{account.role}</span>
+      </div>
+      <label>
+        Name
+        <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required />
+      </label>
+      <label>
+        Role
+        <select value={role} onChange={(event) => setRole(event.target.value)}>
+          <option value="OWNER">Owner</option>
+          <option value="ADMIN">Admin</option>
+          <option value="BRANCH_MANAGER">Branch manager</option>
+          <option value="AGENT">Agent</option>
+          <option value="DISPLAY">Display</option>
+        </select>
+      </label>
+      <label>
+        New password
+        <input type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Leave blank to keep" />
+      </label>
+      <button className="primary-button">Save</button>
+    </form>
   );
 }
 

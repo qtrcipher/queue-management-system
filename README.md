@@ -58,7 +58,7 @@ Seed admin:
 - QR ticket tracking with queue position and estimated wait time
 - Protected staff actions: call next, recall, start, complete, no-show, requeue, cancel, transfer
 - Role-based access control for owners, admins, branch managers, agents, and display users
-- Admin user creation and role assignment
+- Admin creation and editing for services, counters, and user roles
 - Basic analytics for issued tickets, completion/no-show rates, wait time, service time, and CSV export
 - Public display state and customer ticket tracking
 - Built-in email/password session auth with httpOnly cookies

@@ -8,13 +8,13 @@ This roadmap tracks the open-source core. Items may move as the project learns f
 - Kiosk, staff, display, admin, and customer ticket views
 - QR join and ticket tracking
 - Role-based access control
+- Admin editing for services, counters, and users
 - Basic analytics and CSV export
+- End-to-end Playwright coverage for core queue and admin workflows
 - Arabic/English RTL/LTR foundation
 
 ## Next
 
-- End-to-end Playwright tests for kiosk to staff to display workflows
-- Better admin editing for services, counters, and users
 - Email notification templates and SMTP configuration UI
 - Data retention settings and purge jobs
 - Accessibility pass for keyboard focus, labels, and contrast
@@ -26,4 +26,3 @@ This roadmap tracks the open-source core. Items may move as the project learns f
 - Multi-branch dashboards
 - Backup and restore documentation
 - Public demo environment
-
