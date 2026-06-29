@@ -1,0 +1,16 @@
+.DS_Store
+node_modules/
+dist/
+coverage/
+.turbo/
+.cache/
+.env
+.env.local
+*.log
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+playwright-report/
+test-results/
+
+
+*.tsbuildinfo

@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TicketStatus {
+  WAITING
+  CALLED
+  SERVING
+  TRANSFERRED
+  NO_SHOW
+  COMPLETED
+  CANCELLED
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  BRANCH_MANAGER
+  AGENT
+  DISPLAY
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  branches  Branch[]
+  users     User[]
+}
+
+model Branch {
+  id             String           @id @default(cuid())
+  organizationId String
+  nameEn         String
+  nameAr         String
+  slug           String           @unique
+  createdAt      DateTime         @default(now())
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  services       Service[]
+  counters       Counter[]
+  tickets        Ticket[]
+  sequences      TicketSequence[]
+}
+
+model Service {
+  id        String           @id @default(cuid())
+  branchId  String
+  nameEn    String
+  nameAr    String
+  prefix    String
+  isActive  Boolean          @default(true)
+  branch    Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  tickets   Ticket[]
+  sequences TicketSequence[]
+
+  @@unique([branchId, prefix])
+}
+
+model Counter {
+  id       String   @id @default(cuid())
+  branchId String
+  nameEn   String
+  nameAr   String
+  isOpen   Boolean  @default(true)
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  tickets  Ticket[]
+
+  @@unique([branchId, nameEn])
+}
+
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String       @unique
+  name           String
+  passwordHash   String
+  role           UserRole
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Ticket {
+  id             String        @id @default(cuid())
+  branchId       String
+  serviceId      String
+  counterId      String?
+  number         Int
+  code           String
+  status         TicketStatus  @default(WAITING)
+  customerName   String?
+  customerPhone  String?
+  createdAt      DateTime      @default(now())
+  issuedAt       DateTime      @default(now())
+  calledAt       DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  service        Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  counter        Counter?      @relation(fields: [counterId], references: [id])
+  events         TicketEvent[]
+
+  @@unique([branchId, serviceId, number, issuedAt])
+  @@index([branchId, serviceId, status, issuedAt])
+}
+
+model TicketEvent {
+  id        String       @id @default(cuid())
+  ticketId  String
+  status    TicketStatus
+  note      String?
+  createdAt DateTime     @default(now())
+  ticket    Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model TicketSequence {
+  id        String   @id @default(cuid())
+  branchId  String
+  serviceId String
+  date      String
+  nextValue Int      @default(1)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, serviceId, date])
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}

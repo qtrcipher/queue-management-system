@@ -1,0 +1,23 @@
+{
+  "name": "qms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source queue management system for physical and virtual queues.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @qms/api --filter @qms/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "db:generate": "pnpm --filter @qms/api db:generate",
+    "db:push": "pnpm --filter @qms/api db:push",
+    "db:seed": "pnpm --filter @qms/api db:seed"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
+
