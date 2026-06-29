@@ -41,6 +41,12 @@ SESSION_SECRET=replace-with-at-least-32-random-bytes
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_FROM=QMS <no-reply@example.com>
+SMS_PROVIDER=webhook
+SMS_WEBHOOK_URL=https://sms-gateway.example.com/qms
+SMS_WEBHOOK_SECRET=replace-with-provider-secret
+WHATSAPP_PROVIDER=disabled
+WHATSAPP_WEBHOOK_URL=
+WHATSAPP_WEBHOOK_SECRET=
 WEB_ORIGIN=https://qms.example.com
 TRUST_PROXY=true
 ```
@@ -60,6 +66,7 @@ Before deploying, create a production-specific Compose file or override with the
 - Replace the default Postgres password and align `DATABASE_URL`.
 - Remove public host ports for `postgres` and `redis`; only the API should reach them.
 - Remove `mailpit` and configure a real SMTP provider.
+- Configure `SMS_PROVIDER` and `WHATSAPP_PROVIDER` as `disabled`, `mock`, or `webhook`.
 - Set `NODE_ENV=production` and the correct `WEB_ORIGIN` for `api`.
 - Set `TRUST_PROXY=true` only when the API is behind a trusted reverse proxy that controls `X-Forwarded-For`.
 - Build `web` with the production `VITE_API_BASE`.
@@ -78,6 +85,25 @@ The application ships with these baseline protections:
 - API and web security headers for content sniffing, framing, referrer policy, feature policy, and static-web CSP.
 
 Keep `WEB_ORIGIN` exact. A mismatch between the browser URL and API setting will block authenticated state-changing requests.
+
+## SMS and WhatsApp Webhooks
+
+Set `SMS_PROVIDER=webhook` or `WHATSAPP_PROVIDER=webhook` to forward ticket notifications to an external gateway. QMS sends a `POST` request with this JSON shape:
+
+```json
+{
+  "channel": "sms",
+  "to": "+15551234567",
+  "text": "Your queue ticket is A-001",
+  "ticket": {
+    "code": "A-001",
+    "serviceName": "General Service",
+    "ticketUrl": "https://qms.example.com/ticket/ticket-id"
+  }
+}
+```
+
+If `SMS_WEBHOOK_SECRET` or `WHATSAPP_WEBHOOK_SECRET` is set, QMS sends it as a bearer token in the `Authorization` header. Keep webhook endpoints private and validate that token at the gateway.
 
 ## Reverse Proxy
 

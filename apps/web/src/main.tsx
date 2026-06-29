@@ -672,7 +672,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
             <textarea rows={4} value={notificationSettings.ticketEmailBody} onChange={(event) => updateNotificationField("ticketEmailBody", event.target.value)} required />
           </label>
           <label>
-            SMS template
+            SMS / WhatsApp template
             <textarea rows={2} value={notificationSettings.ticketSmsTemplate} onChange={(event) => updateNotificationField("ticketSmsTemplate", event.target.value)} required />
           </label>
           <button className="primary-button">Save notifications</button>

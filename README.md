@@ -65,7 +65,7 @@ Seed admin:
 - Built-in email/password session auth with httpOnly cookies
 - WebSocket queue updates
 - Arabic/English UI with RTL/LTR direction switching
-- SMTP email provider and mock SMS provider
+- SMTP email provider plus mock, webhook, or disabled SMS/WhatsApp provider plugins
 - Audit and ticket event history foundation
 
 ## Repository Layout
