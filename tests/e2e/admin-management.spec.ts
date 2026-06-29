@@ -18,6 +18,8 @@ test("admin can edit service, counter, and user records", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Admin" })).toHaveAttribute("aria-current", "page");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Admin")).toBeVisible();
+  const branchesPanel = page.locator(".panel", { has: page.getByRole("heading", { name: "Branches" }) });
+  await expect(branchesPanel.getByLabel("Manage branch")).toHaveValue(/.+/);
 
   await page.getByLabel("Ticket retention days").fill("180");
   await page.getByRole("button", { name: "Save retention" }).click();
@@ -33,9 +35,6 @@ test("admin can edit service, counter, and user records", async ({ page }) => {
   await notificationsPanel.getByRole("button", { name: "Save notifications" }).click();
   await expect(page.getByRole("status")).toContainText("Notification settings updated");
   await expect(notificationsPanel.getByLabel("Email subject")).toHaveValue("Ticket {{code}} is ready");
-
-  const branchesPanel = page.locator(".panel", { has: page.getByRole("heading", { name: "Branches" }) });
-  await expect(branchesPanel.getByLabel("Manage branch")).toHaveValue(/.+/);
 
   const priorityService = page.getByRole("form", { name: "Edit service B" });
   await priorityService.getByLabel("Name").fill("Priority Desk");
