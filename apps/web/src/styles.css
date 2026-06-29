@@ -15,7 +15,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -26,7 +27,8 @@ a {
 
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   outline: 3px solid #c0d86d;
   outline-offset: 2px;
 }
@@ -287,11 +289,27 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   border: 1px solid #bfd8c8;
   border-radius: 8px;
   min-height: 44px;
   padding: 10px 12px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.customer-fields {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.notification-server-fields {
+  margin-top: 0;
 }
 
 .form-error {
@@ -470,6 +488,8 @@ select {
   .ticket-row,
   .record-row,
   .user-record-row,
+  .customer-fields,
+  .notification-server-fields,
   .status-metrics,
   .metric-grid {
     grid-template-columns: 1fr;

@@ -1,6 +1,6 @@
 import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BarChart3, Building2, CheckCircle2, Download, Languages, Monitor, RotateCcw, Ticket, Trash2, UserRound, UsersRound, XCircle } from "lucide-react";
+import { BarChart3, Building2, CheckCircle2, Download, Languages, Mail, Monitor, RotateCcw, Ticket, Trash2, UserRound, UsersRound, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
 import { io } from "socket.io-client";
@@ -13,7 +13,15 @@ type Branch = { id: string; slug: string; nameEn: string; nameAr: string; servic
 type User = { id: string; email: string; name: string; role: string };
 type TicketRecord = { id: string; code: string; status: string; service?: Service; counter?: Counter | null; events?: { status: string; note?: string }[] };
 type Snapshot = { waiting: TicketRecord[]; called: TicketRecord[]; serving: TicketRecord[]; updatedAt?: string };
-type AdminOverview = { organization: { name: string; ticketRetentionDays: number; branches: Branch[]; users: User[] } | null };
+type NotificationSettings = {
+  smtpHost: string;
+  smtpPort: number;
+  smtpFrom: string;
+  ticketEmailSubject: string;
+  ticketEmailBody: string;
+  ticketSmsTemplate: string;
+};
+type AdminOverview = { organization: ({ name: string; ticketRetentionDays: number; branches: Branch[]; users: User[] } & NotificationSettings) | null };
 type PurgeResult = { deleted: number; cutoff: string; retentionDays: number };
 type AnalyticsSummary = {
   totals: {
@@ -168,13 +176,25 @@ function LoginPanel({ onLogin }: { onLogin: (user: User) => void }) {
 function KioskPage({ branch, setMessage }: AppContext) {
   const { i18n, t } = useTranslation();
   const [createdTicket, setCreatedTicket] = useState<TicketRecord | null>(null);
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const services = branch?.services ?? [];
   const joinUrl = `${window.location.origin}/join/${branch?.slug ?? "main"}`;
   const ticketUrl = createdTicket ? `${window.location.origin}/ticket/${createdTicket.id}` : joinUrl;
 
   async function createTicket(serviceId: string) {
     if (!branch) return;
-    const ticket = await api<TicketRecord>("/tickets", { method: "POST", body: { branchId: branch.id, serviceId } });
+    const ticket = await api<TicketRecord>("/tickets", {
+      method: "POST",
+      body: {
+        branchId: branch.id,
+        serviceId,
+        ...(customerName ? { customerName } : {}),
+        ...(customerEmail ? { customerEmail } : {}),
+        ...(customerPhone ? { customerPhone } : {})
+      }
+    });
     setCreatedTicket(ticket);
     setMessage(`Ticket ${ticket.code} created`);
   }
@@ -184,6 +204,20 @@ function KioskPage({ branch, setMessage }: AppContext) {
       <div className="hero-panel">
         <h1>{t("chooseService")}</h1>
         <p>{t("subtitle")}</p>
+        <div className="customer-fields">
+          <label>
+            Name
+            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} autoComplete="name" />
+          </label>
+          <label>
+            Email
+            <input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} autoComplete="email" />
+          </label>
+          <label>
+            Phone
+            <input type="tel" value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} autoComplete="tel" />
+          </label>
+        </div>
         <div className="service-list kiosk-services">
           {services.map((service) => (
             <button key={service.id} onClick={() => void createTicket(service.id)}>
@@ -296,6 +330,14 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState("AGENT");
   const [ticketRetentionDays, setTicketRetentionDays] = useState(365);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    smtpHost: "localhost",
+    smtpPort: 1025,
+    smtpFrom: "QMS <no-reply@example.com>",
+    ticketEmailSubject: "Your queue ticket is {{code}}",
+    ticketEmailBody: "Your ticket number is {{code}} for {{serviceName}}. Track it at {{ticketUrl}}.",
+    ticketSmsTemplate: "Your queue ticket is {{code}}"
+  });
 
   useEffect(() => {
     if (user) void loadAdmin();
@@ -314,6 +356,16 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     setOverview(overviewData);
     setAnalytics(analyticsData);
     setTicketRetentionDays(overviewData.organization?.ticketRetentionDays ?? 365);
+    if (overviewData.organization) {
+      setNotificationSettings({
+        smtpHost: overviewData.organization.smtpHost,
+        smtpPort: overviewData.organization.smtpPort,
+        smtpFrom: overviewData.organization.smtpFrom,
+        ticketEmailSubject: overviewData.organization.ticketEmailSubject,
+        ticketEmailBody: overviewData.organization.ticketEmailBody,
+        ticketSmsTemplate: overviewData.organization.ticketSmsTemplate
+      });
+    }
     setBranch(overviewData.organization?.branches[0] ?? null);
   }
 
@@ -387,6 +439,20 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     await loadAdmin();
   }
 
+  async function updateNotifications(event: FormEvent) {
+    event.preventDefault();
+    await api<NotificationSettings>("/admin/organization/settings", {
+      method: "PATCH",
+      body: notificationSettings
+    });
+    setMessage("Notification settings updated");
+    await loadAdmin();
+  }
+
+  function updateNotificationField<K extends keyof NotificationSettings>(key: K, value: NotificationSettings[K]) {
+    setNotificationSettings((current) => ({ ...current, [key]: value }));
+  }
+
   return (
     <section className="page-grid">
       <Panel title="Today" icon={<BarChart3 size={18} />}>
@@ -422,6 +488,44 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         <button className="danger-button" onClick={() => void purgeTickets()}>
           Purge old terminal tickets
         </button>
+      </Panel>
+      <Panel title="Notifications" icon={<Mail size={18} />}>
+        <form onSubmit={(event) => void updateNotifications(event)} className="form-grid">
+          <div className="inline-form notification-server-fields">
+            <label>
+              SMTP host
+              <input value={notificationSettings.smtpHost} onChange={(event) => updateNotificationField("smtpHost", event.target.value)} required />
+            </label>
+            <label>
+              SMTP port
+              <input
+                type="number"
+                min={1}
+                max={65535}
+                value={notificationSettings.smtpPort}
+                onChange={(event) => updateNotificationField("smtpPort", Number(event.target.value))}
+                required
+              />
+            </label>
+          </div>
+          <label>
+            From address
+            <input value={notificationSettings.smtpFrom} onChange={(event) => updateNotificationField("smtpFrom", event.target.value)} required />
+          </label>
+          <label>
+            Email subject
+            <input value={notificationSettings.ticketEmailSubject} onChange={(event) => updateNotificationField("ticketEmailSubject", event.target.value)} required />
+          </label>
+          <label>
+            Email body
+            <textarea rows={4} value={notificationSettings.ticketEmailBody} onChange={(event) => updateNotificationField("ticketEmailBody", event.target.value)} required />
+          </label>
+          <label>
+            SMS template
+            <textarea rows={2} value={notificationSettings.ticketSmsTemplate} onChange={(event) => updateNotificationField("ticketSmsTemplate", event.target.value)} required />
+          </label>
+          <button className="primary-button">Save notifications</button>
+        </form>
       </Panel>
       <Panel title="Branches" icon={<Building2 size={18} />}>
         <div className="table-list">

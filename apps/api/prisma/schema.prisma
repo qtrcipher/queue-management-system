@@ -29,6 +29,12 @@ model Organization {
   id                  String   @id @default(cuid())
   name                String
   ticketRetentionDays Int      @default(365)
+  smtpHost            String   @default("localhost")
+  smtpPort            Int      @default(1025)
+  smtpFrom            String   @default("QMS <no-reply@example.com>")
+  ticketEmailSubject  String   @default("Your queue ticket is {{code}}")
+  ticketEmailBody     String   @default("Your ticket number is {{code}} for {{serviceName}}. Track it at {{ticketUrl}}.")
+  ticketSmsTemplate   String   @default("Your queue ticket is {{code}}")
   createdAt           DateTime @default(now())
   branches            Branch[]
   users               User[]
@@ -95,6 +101,7 @@ model Ticket {
   status         TicketStatus  @default(WAITING)
   customerName   String?
   customerPhone  String?
+  customerEmail  String?
   createdAt      DateTime      @default(now())
   issuedAt       DateTime      @default(now())
   calledAt       DateTime?

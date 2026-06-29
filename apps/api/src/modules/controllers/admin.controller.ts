@@ -109,9 +109,41 @@ class UpdateUserDto {
 
 class UpdateOrganizationSettingsDto {
   @IsInt()
+  @IsOptional()
   @Min(1)
   @Max(3650)
-  ticketRetentionDays!: number;
+  ticketRetentionDays?: number;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(2)
+  smtpHost?: string;
+
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  @Max(65535)
+  smtpPort?: number;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(3)
+  smtpFrom?: string;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(3)
+  ticketEmailSubject?: string;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(3)
+  ticketEmailBody?: string;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(3)
+  ticketSmsTemplate?: string;
 }
 
 @Controller("admin")
@@ -155,10 +187,30 @@ export class AdminController {
 
   @Patch("organization/settings")
   async updateOrganizationSettings(@CurrentUser() actor: SessionUser, @Body() body: UpdateOrganizationSettingsDto) {
+    const data = {
+      ...(body.ticketRetentionDays ? { ticketRetentionDays: body.ticketRetentionDays } : {}),
+      ...(body.smtpHost ? { smtpHost: body.smtpHost } : {}),
+      ...(body.smtpPort ? { smtpPort: body.smtpPort } : {}),
+      ...(body.smtpFrom ? { smtpFrom: body.smtpFrom } : {}),
+      ...(body.ticketEmailSubject ? { ticketEmailSubject: body.ticketEmailSubject } : {}),
+      ...(body.ticketEmailBody ? { ticketEmailBody: body.ticketEmailBody } : {}),
+      ...(body.ticketSmsTemplate ? { ticketSmsTemplate: body.ticketSmsTemplate } : {})
+    };
+
     const updated = await this.prisma.organization.update({
       where: { id: actor.organizationId },
-      data: { ticketRetentionDays: body.ticketRetentionDays },
-      select: { id: true, name: true, ticketRetentionDays: true }
+      data,
+      select: {
+        id: true,
+        name: true,
+        ticketRetentionDays: true,
+        smtpHost: true,
+        smtpPort: true,
+        smtpFrom: true,
+        ticketEmailSubject: true,
+        ticketEmailBody: true,
+        ticketSmsTemplate: true
+      }
     });
 
     await this.prisma.auditEvent.create({
@@ -167,7 +219,7 @@ export class AdminController {
         action: "organization.settings.updated",
         entity: "organization",
         entityId: actor.organizationId,
-        metadata: { ticketRetentionDays: updated.ticketRetentionDays }
+        metadata: data
       }
     });
 

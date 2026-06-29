@@ -24,6 +24,14 @@ test("admin can edit service, counter, and user records", async ({ page }) => {
   await page.getByRole("button", { name: "Purge old terminal tickets" }).click();
   await expect(page.getByRole("status")).toContainText("0 tickets purged");
 
+  const notificationsPanel = page.locator(".panel", { has: page.getByRole("heading", { name: "Notifications" }) });
+  await notificationsPanel.getByLabel("SMTP host").fill("mailpit");
+  await notificationsPanel.getByLabel("Email subject").fill("Ticket {{code}} is ready");
+  await notificationsPanel.getByLabel("Email body").fill("Track {{code}} for {{serviceName}} at {{ticketUrl}}.");
+  await notificationsPanel.getByRole("button", { name: "Save notifications" }).click();
+  await expect(page.getByRole("status")).toContainText("Notification settings updated");
+  await expect(notificationsPanel.getByLabel("Email subject")).toHaveValue("Ticket {{code}} is ready");
+
   const priorityService = page.getByRole("form", { name: "Edit service B" });
   await priorityService.getByLabel("Name").fill("Priority Desk");
   await priorityService.getByRole("checkbox", { name: "Active" }).uncheck();

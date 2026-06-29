@@ -1,28 +1,58 @@
 import { Injectable } from "@nestjs/common";
 import nodemailer from "nodemailer";
 
-@Injectable()
-export class NotificationsService {
-  async sendTicketCreatedEmail(to: string | undefined, code: string) {
-    if (!to || !to.includes("@")) return;
+type TicketNotificationSettings = {
+  smtpHost: string;
+  smtpPort: number;
+  smtpFrom: string;
+  ticketEmailSubject: string;
+  ticketEmailBody: string;
+  ticketSmsTemplate: string;
+};
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST ?? "localhost",
-      port: Number(process.env.SMTP_PORT ?? 1025),
-      secure: false
-    });
+type TicketNotificationInput = {
+  customerEmail?: string;
+  customerPhone?: string;
+  code: string;
+  serviceName: string;
+  ticketUrl: string;
+  settings: TicketNotificationSettings;
+};
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM ?? "QMS <no-reply@example.com>",
-      to,
-      subject: `Your queue ticket is ${code}`,
-      text: `Your ticket number is ${code}. We will call you when it is your turn.`
-    });
-  }
-
-  async sendMockSms(phone: string | undefined, message: string) {
-    if (!phone) return;
-    console.info(`[mock-sms] ${phone}: ${message}`);
-  }
+export function renderNotificationTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(/\{\{(code|serviceName|ticketUrl)\}\}/g, (_match, key: string) => values[key] ?? "");
 }
 
+@Injectable()
+export class NotificationsService {
+  async sendTicketCreated(input: TicketNotificationInput) {
+    const values = {
+      code: input.code,
+      serviceName: input.serviceName,
+      ticketUrl: input.ticketUrl
+    };
+
+    if (input.customerEmail?.includes("@")) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: input.settings.smtpHost,
+          port: input.settings.smtpPort,
+          secure: false
+        });
+
+        await transporter.sendMail({
+          from: input.settings.smtpFrom,
+          to: input.customerEmail,
+          subject: renderNotificationTemplate(input.settings.ticketEmailSubject, values),
+          text: renderNotificationTemplate(input.settings.ticketEmailBody, values)
+        });
+      } catch (error) {
+        console.error("Ticket email notification failed", error);
+      }
+    }
+
+    if (input.customerPhone) {
+      console.info(`[mock-sms] ${input.customerPhone}: ${renderNotificationTemplate(input.settings.ticketSmsTemplate, values)}`);
+    }
+  }
+}

@@ -14,6 +14,8 @@ test("customer ticket can be called by staff and shown on the display", async ({
   await page.goto("/kiosk");
   await expect(page.getByRole("heading", { name: "Choose a service" })).toBeVisible();
 
+  await page.getByLabel("Email").fill("customer@example.com");
+  await page.getByLabel("Phone").fill("+97455550000");
   await page.getByRole("button", { name: /General Service/ }).click();
   const ticketCode = (await page.locator(".ticket-preview strong").textContent())?.trim();
   expect(ticketCode).toMatch(/^A-\d{3}$/);

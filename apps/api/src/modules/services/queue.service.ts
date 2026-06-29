@@ -9,6 +9,7 @@ interface CreateTicketInput {
   serviceId: string;
   customerName?: string;
   customerPhone?: string;
+  customerEmail?: string;
 }
 
 function formatTicketCode(prefix: string, number: number): string {
@@ -29,7 +30,10 @@ export class QueueService {
   ) {}
 
   async createTicket(input: CreateTicketInput) {
-    const service = await this.prisma.service.findUnique({ where: { id: input.serviceId } });
+    const service = await this.prisma.service.findUnique({
+      where: { id: input.serviceId },
+      include: { branch: { include: { organization: true } } }
+    });
     if (!service) throw new NotFoundException("Service not found");
 
     const today = new Date().toISOString().slice(0, 10);
@@ -46,6 +50,7 @@ export class QueueService {
           serviceId: input.serviceId,
           customerName: input.customerName,
           customerPhone: input.customerPhone,
+          customerEmail: input.customerEmail,
           number,
           code: formatTicketCode(service.prefix, number),
           events: { create: { status: "WAITING", note: "Ticket created" } }
@@ -60,7 +65,14 @@ export class QueueService {
       return created;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-    await this.notifications.sendMockSms(input.customerPhone, `Your queue ticket is ${ticket.code}`);
+    await this.notifications.sendTicketCreated({
+      customerEmail: input.customerEmail,
+      customerPhone: input.customerPhone,
+      code: ticket.code,
+      serviceName: service.nameEn,
+      ticketUrl: `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/ticket/${ticket.id}`,
+      settings: service.branch.organization
+    });
     this.gateway.emitQueueEvent("ticket.created", ticket);
     return ticket;
   }

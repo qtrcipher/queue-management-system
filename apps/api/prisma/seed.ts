@@ -10,7 +10,13 @@ async function main() {
     create: {
       id: "seed-org",
       name: "Demo Organization",
-      ticketRetentionDays: 365
+      ticketRetentionDays: 365,
+      smtpHost: process.env.SMTP_HOST ?? "localhost",
+      smtpPort: Number(process.env.SMTP_PORT ?? 1025),
+      smtpFrom: process.env.SMTP_FROM ?? "QMS <no-reply@example.com>",
+      ticketEmailSubject: "Your queue ticket is {{code}}",
+      ticketEmailBody: "Your ticket number is {{code}} for {{serviceName}}. Track it at {{ticketUrl}}.",
+      ticketSmsTemplate: "Your queue ticket is {{code}}"
     }
   });
 

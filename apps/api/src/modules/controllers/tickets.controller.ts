@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post } from "@nestjs/common";
-import { IsOptional, IsString } from "class-validator";
+import { IsEmail, IsOptional, IsString } from "class-validator";
 import { QueueService } from "../services/queue.service.js";
 
 class CreateTicketDto {
@@ -16,6 +16,10 @@ class CreateTicketDto {
   @IsString()
   @IsOptional()
   customerPhone?: string;
+
+  @IsEmail()
+  @IsOptional()
+  customerEmail?: string;
 }
 
 @Controller("tickets")
