@@ -10,15 +10,19 @@ export const ticketStatuses = [
 
 export type TicketStatus = (typeof ticketStatuses)[number];
 
+export type TicketSource = "WALK_IN" | "APPOINTMENT";
+
 export type Locale = "en" | "ar";
 
 export interface QueueTicket {
   id: string;
   code: string;
   status: TicketStatus;
+  source: TicketSource;
   branchId: string;
   serviceId: string;
   counterId?: string | null;
+  scheduledFor?: string | null;
   issuedAt: string;
   calledAt?: string | null;
   completedAt?: string | null;
@@ -56,4 +60,3 @@ export function estimateWaitMinutes(numberAhead: number, averageServiceMinutes: 
   const estimate = (numberAhead * averageServiceMinutes) / effectiveCounters;
   return Math.max(1, Math.ceil(estimate));
 }
-

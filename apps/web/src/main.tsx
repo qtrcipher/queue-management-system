@@ -1,6 +1,6 @@
 import React, { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { ArrowRightLeft, BarChart3, Building2, CheckCircle2, Download, Languages, Mail, Monitor, RotateCcw, Ticket, Trash2, Undo2, UserRound, UsersRound, XCircle } from "lucide-react";
+import { ArrowRightLeft, BarChart3, Building2, CalendarClock, CheckCircle2, Download, Languages, Mail, Monitor, RotateCcw, Ticket, Trash2, Undo2, UserRound, UsersRound, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
 import { io } from "socket.io-client";
@@ -11,7 +11,18 @@ type Service = { id: string; nameEn: string; nameAr: string; prefix: string; isA
 type Counter = { id: string; nameEn: string; nameAr: string; isOpen?: boolean };
 type Branch = { id: string; slug: string; nameEn: string; nameAr: string; services: Service[]; counters: Counter[] };
 type User = { id: string; email: string; name: string; role: string };
-type TicketRecord = { id: string; code: string; status: string; service?: Service; counter?: Counter | null; events?: { status: string; note?: string }[] };
+type TicketRecord = {
+  id: string;
+  code: string;
+  status: string;
+  source?: "WALK_IN" | "APPOINTMENT";
+  scheduledFor?: string | null;
+  customerName?: string | null;
+  service?: Service;
+  counter?: Counter | null;
+  events?: { status: string; note?: string }[];
+};
+type AppointmentRecord = TicketRecord & { branch: Branch; service: Service; counter?: Counter | null };
 type Snapshot = { waiting: TicketRecord[]; called: TicketRecord[]; serving: TicketRecord[]; updatedAt?: string };
 type NotificationSettings = {
   smtpHost: string;
@@ -21,7 +32,10 @@ type NotificationSettings = {
   ticketEmailBody: string;
   ticketSmsTemplate: string;
 };
-type AdminOverview = { organization: ({ name: string; ticketRetentionDays: number; branches: Branch[]; users: User[] } & NotificationSettings) | null };
+type AdminOverview = {
+  organization: ({ name: string; ticketRetentionDays: number; branches: Branch[]; users: User[] } & NotificationSettings) | null;
+  appointments: AppointmentRecord[];
+};
 type PurgeResult = { deleted: number; cutoff: string; retentionDays: number };
 type AnalyticsSummary = {
   range: { start: string; end: string; branchId: string | null };
@@ -389,6 +403,11 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState("AGENT");
+  const [appointmentServiceId, setAppointmentServiceId] = useState("");
+  const [appointmentTime, setAppointmentTime] = useState(defaultAppointmentInputValue());
+  const [appointmentName, setAppointmentName] = useState("");
+  const [appointmentEmail, setAppointmentEmail] = useState("");
+  const [appointmentPhone, setAppointmentPhone] = useState("");
   const [ticketRetentionDays, setTicketRetentionDays] = useState(365);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     smtpHost: "localhost",
@@ -410,6 +429,12 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
   }, [analyticsBranchId, analyticsEnd, analyticsStart]);
   const analyticsPath = `/analytics/summary${analyticsQuery ? `?${analyticsQuery}` : ""}`;
   const analyticsCsvPath = `${apiBase}/analytics/tickets.csv${analyticsQuery ? `?${analyticsQuery}` : ""}`;
+
+  useEffect(() => {
+    const nextBranch = branches.find((branch) => branch.id === selectedBranchId) ?? branches[0];
+    if (!nextBranch) return;
+    setAppointmentServiceId((current) => nextBranch.services.some((service) => service.id === current) ? current : nextBranch.services[0]?.id ?? "");
+  }, [branches, selectedBranchId]);
 
   if (!user) return <LoginPanel onLogin={setUser} />;
 
@@ -494,6 +519,28 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     await loadAdmin(selectedBranch?.id);
   }
 
+  async function scheduleAppointment(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedBranch || !appointmentServiceId) return;
+    await api<AppointmentRecord>("/admin/appointments", {
+      method: "POST",
+      body: {
+        branchId: selectedBranch.id,
+        serviceId: appointmentServiceId,
+        scheduledFor: new Date(appointmentTime).toISOString(),
+        customerName: appointmentName,
+        ...(appointmentEmail ? { customerEmail: appointmentEmail } : {}),
+        ...(appointmentPhone ? { customerPhone: appointmentPhone } : {})
+      }
+    });
+    setAppointmentName("");
+    setAppointmentEmail("");
+    setAppointmentPhone("");
+    setAppointmentTime(defaultAppointmentInputValue());
+    setMessage("Appointment scheduled");
+    await loadAdmin(selectedBranch.id);
+  }
+
   async function updateRetention(event: FormEvent) {
     event.preventDefault();
     loadAdminRequestId.current += 1;
@@ -505,7 +552,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     });
     setTicketRetentionDays(updated.ticketRetentionDays);
     setOverview((current) => current?.organization
-      ? { organization: { ...current.organization, ticketRetentionDays: updated.ticketRetentionDays } }
+      ? { ...current, organization: { ...current.organization, ticketRetentionDays: updated.ticketRetentionDays } }
       : current);
     setMessage("Retention settings updated");
   }
@@ -639,6 +686,42 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         <button className="danger-button" onClick={() => void purgeTickets()}>
           Purge old terminal tickets
         </button>
+      </Panel>
+      <Panel title="Appointments" icon={<CalendarClock size={18} />}>
+        <div className="appointment-list" aria-label="Upcoming appointments">
+          {(overview?.appointments ?? [])
+            .filter((appointment) => !selectedBranch || appointment.branch.id === selectedBranch.id)
+            .map((appointment) => (
+              <div key={appointment.id} className="appointment-row">
+                <strong>{appointment.code}</strong>
+                <span>{appointment.customerName || "Guest"} · {appointment.service.prefix} · {formatAppointmentTime(appointment.scheduledFor)}</span>
+                <small>{appointment.status}</small>
+              </div>
+            ))}
+          {(overview?.appointments ?? []).filter((appointment) => !selectedBranch || appointment.branch.id === selectedBranch.id).length === 0
+            ? <EmptyState label="No active appointments." />
+            : null}
+        </div>
+        <form onSubmit={(event) => void scheduleAppointment(event)} className="form-grid">
+          <label>
+            Service
+            <select value={appointmentServiceId} onChange={(event) => setAppointmentServiceId(event.target.value)} required>
+              {selectedBranch?.services.map((service) => (
+                <option key={service.id} value={service.id}>{service.prefix} · {localName(service, i18n.language)}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Appointment time
+            <input type="datetime-local" value={appointmentTime} onChange={(event) => setAppointmentTime(event.target.value)} required />
+          </label>
+          <label>Name<input value={appointmentName} onChange={(event) => setAppointmentName(event.target.value)} minLength={2} required /></label>
+          <div className="inline-form notification-server-fields">
+            <label>Email<input type="email" value={appointmentEmail} onChange={(event) => setAppointmentEmail(event.target.value)} /></label>
+            <label>Phone<input type="tel" value={appointmentPhone} onChange={(event) => setAppointmentPhone(event.target.value)} /></label>
+            <button className="primary-button">Schedule</button>
+          </div>
+        </form>
       </Panel>
       <Panel title="Notifications" icon={<Mail size={18} />}>
         <form onSubmit={(event) => void updateNotifications(event)} className="form-grid">
@@ -919,6 +1002,7 @@ function TicketPage({ ticketId }: { ticketId: string }) {
       <span>Your ticket</span>
       <strong>{ticket.code}</strong>
       <p>{ticket.status} · {localName(status.service, i18n.language)}</p>
+      {ticket.source === "APPOINTMENT" ? <p className="appointment-badge">Appointment · {formatAppointmentTime(ticket.scheduledFor)}</p> : null}
       <div className="status-metrics">
         <div>
           <span>Position</span>
@@ -973,7 +1057,10 @@ function TicketStack({
       {tickets.map((ticket) => (
         <div className="ticket-row" key={ticket.id}>
           <strong>{ticket.code}</strong>
-          <span>{ticket.status} · {ticket.service?.prefix ?? ""}</span>
+          <span>
+            {ticket.status} · {ticket.service?.prefix ?? ""}
+            {ticket.source === "APPOINTMENT" ? ` · Appointment ${formatAppointmentTime(ticket.scheduledFor)}` : ""}
+          </span>
           {onAction && ticket.status === "CALLED" ? <IconAction label="Start" icon={<CheckCircle2 size={16} />} onClick={() => void onAction(ticket.id, "start")} /> : null}
           {onAction && ticket.status === "SERVING" ? <IconAction label="Complete" icon={<CheckCircle2 size={16} />} onClick={() => void onAction(ticket.id, "complete")} /> : null}
           {onAction && ticket.status === "CALLED" ? <IconAction label="Recall" icon={<RotateCcw size={16} />} onClick={() => void onAction(ticket.id, "recall")} /> : null}
@@ -1079,6 +1166,24 @@ function pageTitle(path: string) {
 
 function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function defaultAppointmentInputValue() {
+  const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+  return localDateTimeInputValue(nextHour);
+}
+
+function localDateTimeInputValue(date: Date) {
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+function formatAppointmentTime(value?: string | null) {
+  if (!value) return "unscheduled";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
 }
 
 function analyticsQueryString(branchId: string, start: string, end: string) {

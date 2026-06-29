@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, type TicketStatus } from "@prisma/client";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma, type TicketSource, type TicketStatus } from "@prisma/client";
 import { NotificationsService } from "./notifications.service.js";
 import { PrismaService } from "./prisma.service.js";
 import { QueueGateway } from "../queue.gateway.js";
@@ -8,6 +8,17 @@ interface CreateTicketInput {
   branchId: string;
   serviceId: string;
   customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  source?: TicketSource;
+  scheduledFor?: Date;
+}
+
+interface ScheduleAppointmentInput {
+  branchId: string;
+  serviceId: string;
+  scheduledFor: Date;
+  customerName: string;
   customerPhone?: string;
   customerEmail?: string;
 }
@@ -19,6 +30,20 @@ function formatTicketCode(prefix: string, number: number): string {
 function estimateWaitMinutes(numberAhead: number, averageServiceMinutes: number, openCounters: number): number {
   if (numberAhead <= 0) return 0;
   return Math.max(1, Math.ceil((numberAhead * averageServiceMinutes) / Math.max(1, openCounters)));
+}
+
+function sequenceDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function activeQueueWhere(now: Date): Prisma.TicketWhereInput {
+  return {
+    OR: [
+      { source: "WALK_IN" },
+      { source: "APPOINTMENT", scheduledFor: { lte: now } },
+      { source: "APPOINTMENT", scheduledFor: null }
+    ]
+  };
 }
 
 @Injectable()
@@ -35,31 +60,45 @@ export class QueueService {
       include: { branch: { include: { organization: true } } }
     });
     if (!service) throw new NotFoundException("Service not found");
+    if (service.branchId !== input.branchId) throw new BadRequestException("Service does not belong to this branch");
 
-    const today = new Date().toISOString().slice(0, 10);
+    const source = input.source ?? "WALK_IN";
+    const scheduledFor = input.scheduledFor;
+    if (source === "APPOINTMENT" && !scheduledFor) throw new BadRequestException("scheduledFor is required for appointments");
+
+    const issuedAt = scheduledFor ?? new Date();
+    const date = sequenceDate(issuedAt);
     const ticket = await this.prisma.$transaction(async (tx) => {
       const sequence = await tx.ticketSequence.upsert({
-        where: { branchId_serviceId_date: { branchId: input.branchId, serviceId: input.serviceId, date: today } },
+        where: { branchId_serviceId_date: { branchId: input.branchId, serviceId: input.serviceId, date } },
         update: { nextValue: { increment: 1 } },
-        create: { branchId: input.branchId, serviceId: input.serviceId, date: today, nextValue: 2 }
+        create: { branchId: input.branchId, serviceId: input.serviceId, date, nextValue: 2 }
       });
       const number = sequence.nextValue - 1;
       const created = await tx.ticket.create({
         data: {
           branchId: input.branchId,
           serviceId: input.serviceId,
+          source,
           customerName: input.customerName,
           customerPhone: input.customerPhone,
           customerEmail: input.customerEmail,
+          scheduledFor,
+          issuedAt,
           number,
           code: formatTicketCode(service.prefix, number),
-          events: { create: { status: "WAITING", note: "Ticket created" } }
+          events: { create: { status: "WAITING", note: source === "APPOINTMENT" ? "Appointment scheduled" : "Ticket created" } }
         },
         include: { service: true, counter: true }
       });
 
       await tx.auditEvent.create({
-        data: { action: "ticket.created", entity: "ticket", entityId: created.id, metadata: { code: created.code } }
+        data: {
+          action: source === "APPOINTMENT" ? "appointment.scheduled" : "ticket.created",
+          entity: "ticket",
+          entityId: created.id,
+          metadata: { code: created.code, scheduledFor: scheduledFor?.toISOString() }
+        }
       });
 
       return created;
@@ -75,6 +114,10 @@ export class QueueService {
     });
     this.gateway.emitQueueEvent("ticket.created", ticket);
     return ticket;
+  }
+
+  scheduleAppointment(input: ScheduleAppointmentInput) {
+    return this.createTicket({ ...input, source: "APPOINTMENT" });
   }
 
   async getTicket(ticketId: string) {
@@ -98,14 +141,17 @@ export class QueueService {
     });
     if (!ticket) throw new NotFoundException("Ticket not found");
 
-    const waitingAhead = await this.prisma.ticket.count({
+    const now = new Date();
+    const canBeCalled = ticket.source === "WALK_IN" || !ticket.scheduledFor || ticket.scheduledFor <= now;
+    const waitingAhead = canBeCalled ? await this.prisma.ticket.count({
       where: {
         branchId: ticket.branchId,
         serviceId: ticket.serviceId,
         status: { in: ["WAITING", "TRANSFERRED"] },
-        issuedAt: { lt: ticket.issuedAt }
+        issuedAt: { lt: ticket.issuedAt },
+        ...activeQueueWhere(now)
       }
-    });
+    }) : 0;
 
     const activeCounters = await this.prisma.counter.count({
       where: { branchId: ticket.branchId, isOpen: true }
@@ -138,9 +184,9 @@ export class QueueService {
       branch: ticket.branch,
       service: ticket.service,
       counter: ticket.counter,
-      position: ["WAITING", "TRANSFERRED"].includes(ticket.status) ? waitingAhead + 1 : 0,
-      numberAhead: ["WAITING", "TRANSFERRED"].includes(ticket.status) ? waitingAhead : 0,
-      estimatedWaitMinutes: ["WAITING", "TRANSFERRED"].includes(ticket.status)
+      position: ["WAITING", "TRANSFERRED"].includes(ticket.status) && canBeCalled ? waitingAhead + 1 : 0,
+      numberAhead: ["WAITING", "TRANSFERRED"].includes(ticket.status) && canBeCalled ? waitingAhead : 0,
+      estimatedWaitMinutes: ["WAITING", "TRANSFERRED"].includes(ticket.status) && canBeCalled
         ? estimateWaitMinutes(waitingAhead, averageServiceMinutes, activeCounters)
         : 0,
       activeCounters,
@@ -149,9 +195,10 @@ export class QueueService {
   }
 
   async callNext(branchId: string, serviceId: string, counterId?: string) {
+    const now = new Date();
     const ticket = await this.prisma.$transaction(async (tx) => {
       const next = await tx.ticket.findFirst({
-        where: { branchId, serviceId, status: { in: ["WAITING", "TRANSFERRED"] } },
+        where: { branchId, serviceId, status: { in: ["WAITING", "TRANSFERRED"] }, ...activeQueueWhere(now) },
         orderBy: { issuedAt: "asc" }
       });
       if (!next) return null;
@@ -161,6 +208,7 @@ export class QueueService {
         data: {
           status: "CALLED",
           counterId,
+          checkedInAt: next.source === "APPOINTMENT" && !next.checkedInAt ? now : undefined,
           calledAt: new Date(),
           events: { create: { status: "CALLED", note: "Called by staff" } }
         },
@@ -244,8 +292,15 @@ export class QueueService {
   }
 
   async snapshot(branchId: string) {
+    const now = new Date();
     const tickets = await this.prisma.ticket.findMany({
-      where: { branchId, status: { in: ["WAITING", "TRANSFERRED", "CALLED", "SERVING"] } },
+      where: {
+        branchId,
+        OR: [
+          { status: { in: ["CALLED", "SERVING"] } },
+          { status: { in: ["WAITING", "TRANSFERRED"] }, ...activeQueueWhere(now) }
+        ]
+      },
       include: { service: true, counter: true },
       orderBy: { issuedAt: "asc" }
     });

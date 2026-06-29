@@ -54,11 +54,11 @@ Seed admin:
 ## Features
 
 - Multi-branch, multi-service, multi-counter queue model
-- Kiosk ticket creation and QR/web join flow
+- Kiosk ticket creation, appointment scheduling, and QR/web join flow
 - QR ticket tracking with queue position and estimated wait time
 - Protected staff actions: counter selection, call next, recall, start, complete, no-show, requeue, cancel, transfer
 - Role-based access control for owners, admins, branch managers, agents, and display users
-- Admin creation and editing for services, counters, and user roles
+- Admin creation and editing for services, counters, user roles, and appointments
 - Basic analytics for issued tickets, completion/no-show rates, wait time, service time, branch/date filtering, multi-branch dashboards, and CSV export
 - Configurable ticket retention and manual purge for old terminal tickets
 - Public display state and customer ticket tracking

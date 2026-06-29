@@ -51,6 +51,17 @@ test("admin can edit service, counter, and user records", async ({ page }) => {
   await expect(page.getByRole("status")).toContainText("Notification settings updated");
   await expect(notificationsPanel.getByLabel("Email subject")).toHaveValue("Ticket {{code}} is ready");
 
+  const appointmentsPanel = page.locator(".panel", { has: page.getByRole("heading", { name: "Appointments" }) });
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  await appointmentsPanel.getByLabel("Service").selectOption({ index: 0 });
+  await appointmentsPanel.getByLabel("Appointment time").fill(`${tomorrow}T10:30`);
+  await appointmentsPanel.getByLabel("Name").fill("Mona Appointment");
+  await appointmentsPanel.getByLabel("Email").fill("mona@example.com");
+  await appointmentsPanel.getByLabel("Phone").fill("+97455551234");
+  await appointmentsPanel.getByRole("button", { name: "Schedule" }).click();
+  await expect(page.getByRole("status")).toContainText("Appointment scheduled");
+  await expect(appointmentsPanel.getByLabel("Upcoming appointments")).toContainText("Mona Appointment");
+
   const priorityService = page.getByRole("form", { name: "Edit service B" });
   await priorityService.getByLabel("Name").fill("Priority Desk");
   await priorityService.getByRole("button", { name: "Save" }).click();

@@ -14,6 +14,7 @@ This roadmap tracks the open-source core. Items may move as the project learns f
 - Configurable SMTP, SMS, and WhatsApp notification providers
 - Accessibility foundation for skip navigation, page titles, route state, focus visibility, and page landmarks
 - Staff counter selection and direct ticket actions for transfer, requeue, and cancel
+- Appointment scheduling and walk-in blending
 - Backup and restore documentation
 - Production deployment guide
 - Security hardening for public deployments
@@ -23,9 +24,5 @@ This roadmap tracks the open-source core. Items may move as the project learns f
 - Arabic/English RTL/LTR foundation
 
 ## Next
-
-- Appointments and walk-in blending
-
-## Later
 
 - Public demo environment

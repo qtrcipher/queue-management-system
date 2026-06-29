@@ -377,6 +377,31 @@ textarea {
   gap: 10px;
 }
 
+.appointment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.appointment-row {
+  background: #f7f8f4;
+  border: 1px solid #dfe5dc;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.appointment-row span,
+.appointment-row small,
+.appointment-badge {
+  color: #637064;
+}
+
+.appointment-badge {
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
 .record-row {
   align-items: stretch;
   background: #f7f8f4;

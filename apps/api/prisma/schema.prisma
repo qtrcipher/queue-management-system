@@ -25,6 +25,11 @@ enum UserRole {
   DISPLAY
 }
 
+enum TicketSource {
+  WALK_IN
+  APPOINTMENT
+}
+
 model Organization {
   id                  String   @id @default(cuid())
   name                String
@@ -96,12 +101,15 @@ model Ticket {
   branchId       String
   serviceId      String
   counterId      String?
+  source         TicketSource  @default(WALK_IN)
   number         Int
   code           String
   status         TicketStatus  @default(WAITING)
   customerName   String?
   customerPhone  String?
   customerEmail  String?
+  scheduledFor   DateTime?
+  checkedInAt    DateTime?
   createdAt      DateTime      @default(now())
   issuedAt       DateTime      @default(now())
   calledAt       DateTime?
@@ -113,6 +121,7 @@ model Ticket {
   events         TicketEvent[]
 
   @@unique([branchId, serviceId, number, issuedAt])
+  @@index([branchId, serviceId, source, scheduledFor])
   @@index([branchId, serviceId, status, issuedAt])
 }
 

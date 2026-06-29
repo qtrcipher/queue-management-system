@@ -1,12 +1,13 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 import { hash } from "argon2";
-import { IsBoolean, IsEmail, IsEnum, IsInt, IsOptional, IsString, Matches, Max, Min, MinLength } from "class-validator";
+import { IsBoolean, IsEmail, IsEnum, IsInt, IsISO8601, IsOptional, IsString, Matches, Max, Min, MinLength } from "class-validator";
 import { CurrentUser } from "../decorators/current-user.decorator.js";
 import { Roles } from "../decorators/roles.decorator.js";
 import { RolesGuard } from "../guards/roles.guard.js";
 import type { SessionUser } from "../guards/session.guard.js";
 import { PrismaService } from "../services/prisma.service.js";
+import { QueueService } from "../services/queue.service.js";
 import { RetentionService } from "../services/retention.service.js";
 
 class CreateBranchDto {
@@ -91,6 +92,29 @@ class CreateUserDto {
   role!: UserRole;
 }
 
+class ScheduleAppointmentDto {
+  @IsString()
+  branchId!: string;
+
+  @IsString()
+  serviceId!: string;
+
+  @IsISO8601()
+  scheduledFor!: string;
+
+  @IsString()
+  @MinLength(2)
+  customerName!: string;
+
+  @IsString()
+  @IsOptional()
+  customerPhone?: string;
+
+  @IsEmail()
+  @IsOptional()
+  customerEmail?: string;
+}
+
 class UpdateUserDto {
   @IsString()
   @IsOptional()
@@ -152,6 +176,7 @@ class UpdateOrganizationSettingsDto {
 export class AdminController {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly queue: QueueService,
     private readonly retention: RetentionService
   ) {}
 
@@ -173,7 +198,17 @@ export class AdminController {
       }
     });
 
-    return { organization };
+    const appointments = await this.prisma.ticket.findMany({
+      where: {
+        source: "APPOINTMENT",
+        status: { in: ["WAITING", "TRANSFERRED", "CALLED", "SERVING"] }
+      },
+      include: { branch: true, service: true, counter: true },
+      orderBy: { scheduledFor: "asc" },
+      take: 25
+    });
+
+    return { organization, appointments };
   }
 
   @Post("branches")
@@ -229,6 +264,18 @@ export class AdminController {
   @Post("maintenance/purge-tickets")
   purgeTickets(@CurrentUser() actor: SessionUser) {
     return this.retention.purgeTerminalTickets(actor.organizationId, actor.id);
+  }
+
+  @Post("appointments")
+  scheduleAppointment(@Body() body: ScheduleAppointmentDto) {
+    return this.queue.scheduleAppointment({
+      branchId: body.branchId,
+      serviceId: body.serviceId,
+      scheduledFor: new Date(body.scheduledFor),
+      customerName: body.customerName,
+      customerPhone: body.customerPhone,
+      customerEmail: body.customerEmail
+    });
   }
 
   @Post("branches/:branchId/services")
