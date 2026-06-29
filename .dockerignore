@@ -1,0 +1,14 @@
+.DS_Store
+.git
+.github
+.env
+node_modules
+dist
+coverage
+.turbo
+.cache
+apps/*/dist
+packages/*/dist
+playwright-report
+test-results
+

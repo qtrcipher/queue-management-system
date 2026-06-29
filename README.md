@@ -6,7 +6,7 @@ Open-source queue management for physical and virtual queues. QMS is built for s
 
 This repository is an early public MVP scaffold. It includes a working TypeScript monorepo, NestJS API, React/Vite web app, Prisma schema, Docker Compose services, seed data, and project governance files.
 
-## Quick Start
+## Development Quick Start
 
 ```bash
 cp .env.example .env
@@ -21,6 +21,19 @@ pnpm dev
 - Web app: http://localhost:5173
 - API health: http://localhost:3000/health
 - Mailpit: http://localhost:8025
+
+## Full Docker Quick Start
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+- Web app: http://localhost:8080
+- API health: http://localhost:3000/health
+- Mailpit: http://localhost:8025
+
+The API container applies the Prisma schema and loads seed data on startup for the current MVP. Replace development secrets in `.env` before any production deployment.
 
 Useful web routes:
 
