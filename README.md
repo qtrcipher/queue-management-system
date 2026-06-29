@@ -78,6 +78,10 @@ infra         Deployment and operations notes
 research      Product research references
 ```
 
+## Community
+
+QMS is maintained as an open-source project under Apache-2.0. Contributions use DCO signoff instead of a CLA. See [CONTRIBUTING.md](CONTRIBUTING.md), [GOVERNANCE.md](GOVERNANCE.md), and [ROADMAP.md](ROADMAP.md).
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
