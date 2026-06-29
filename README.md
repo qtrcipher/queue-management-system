@@ -42,6 +42,7 @@ Useful web routes:
 - `/display`: public waiting-room display
 - `/admin`: branch, service, and counter setup
 - `/join/main`: customer QR join flow for the seeded branch
+- `/ticket/:id`: customer ticket status, position, and ETA
 
 Seed admin:
 
@@ -52,6 +53,7 @@ Seed admin:
 
 - Multi-branch, multi-service, multi-counter queue model
 - Kiosk ticket creation and QR/web join flow
+- QR ticket tracking with queue position and estimated wait time
 - Protected staff actions: call next, recall, start, complete, no-show, requeue, cancel, transfer
 - Public display state and customer ticket tracking
 - Built-in email/password session auth with httpOnly cookies

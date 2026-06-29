@@ -16,6 +16,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "i18next": "^24.1.0",
     "lucide-react": "^0.468.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-i18next": "^15.2.0",
@@ -29,4 +30,3 @@
     "vitest": "^2.1.8"
   }
 }
-

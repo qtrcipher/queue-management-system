@@ -190,6 +190,7 @@ nav a:hover {
   background: #17211b;
   color: #ffffff;
   display: grid;
+  gap: 12px;
   min-height: 280px;
   text-align: center;
 }
@@ -203,7 +204,6 @@ nav a:hover {
 .ticket-preview a {
   color: #c0d86d;
   font-weight: 700;
-  margin-top: 16px;
 }
 
 .ticket-stack {
@@ -309,6 +309,50 @@ input {
   text-align: center;
 }
 
+.status-metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.status-metrics div {
+  background: #f7f8f4;
+  border: 1px solid #dfe5dc;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.status-metrics span,
+.status-metrics strong {
+  display: block;
+}
+
+.status-metrics strong {
+  font-size: 24px;
+}
+
+.qr-panel {
+  align-items: center;
+  background: #ffffff;
+  border-radius: 8px;
+  color: #17211b;
+  display: inline-grid;
+  gap: 8px;
+  justify-items: center;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.qr-panel span {
+  color: #4d5b50;
+  font-size: 13px;
+}
+
+.event-list {
+  margin-top: 18px;
+}
+
 @media (max-width: 1020px) {
   .app-shell,
   .page-grid,
@@ -329,7 +373,8 @@ input {
   .inline-form,
   .kiosk-services,
   .compact,
-  .ticket-row {
+  .ticket-row,
+  .status-metrics {
     grid-template-columns: 1fr;
   }
 }

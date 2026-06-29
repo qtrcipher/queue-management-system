@@ -15,6 +15,11 @@ function formatTicketCode(prefix: string, number: number): string {
   return `${prefix.toUpperCase()}-${number.toString().padStart(3, "0")}`;
 }
 
+function estimateWaitMinutes(numberAhead: number, averageServiceMinutes: number, openCounters: number): number {
+  if (numberAhead <= 0) return 0;
+  return Math.max(1, Math.ceil((numberAhead * averageServiceMinutes) / Math.max(1, openCounters)));
+}
+
 @Injectable()
 export class QueueService {
   constructor(
@@ -67,6 +72,68 @@ export class QueueService {
     });
     if (!ticket) throw new NotFoundException("Ticket not found");
     return ticket;
+  }
+
+  async getTicketStatus(ticketId: string) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: {
+        branch: true,
+        service: true,
+        counter: true,
+        events: { orderBy: { createdAt: "desc" } }
+      }
+    });
+    if (!ticket) throw new NotFoundException("Ticket not found");
+
+    const waitingAhead = await this.prisma.ticket.count({
+      where: {
+        branchId: ticket.branchId,
+        serviceId: ticket.serviceId,
+        status: { in: ["WAITING", "TRANSFERRED"] },
+        issuedAt: { lt: ticket.issuedAt }
+      }
+    });
+
+    const activeCounters = await this.prisma.counter.count({
+      where: { branchId: ticket.branchId, isOpen: true }
+    });
+
+    const recentCompleted = await this.prisma.ticket.findMany({
+      where: {
+        branchId: ticket.branchId,
+        serviceId: ticket.serviceId,
+        status: "COMPLETED",
+        startedAt: { not: null },
+        completedAt: { not: null }
+      },
+      orderBy: { completedAt: "desc" },
+      take: 20
+    });
+
+    const serviceDurations = recentCompleted
+      .map((completed) => {
+        if (!completed.startedAt || !completed.completedAt) return 0;
+        return (completed.completedAt.getTime() - completed.startedAt.getTime()) / 60000;
+      })
+      .filter((minutes) => minutes > 0);
+    const averageServiceMinutes = serviceDurations.length
+      ? serviceDurations.reduce((sum, minutes) => sum + minutes, 0) / serviceDurations.length
+      : 5;
+
+    return {
+      ticket,
+      branch: ticket.branch,
+      service: ticket.service,
+      counter: ticket.counter,
+      position: ["WAITING", "TRANSFERRED"].includes(ticket.status) ? waitingAhead + 1 : 0,
+      numberAhead: ["WAITING", "TRANSFERRED"].includes(ticket.status) ? waitingAhead : 0,
+      estimatedWaitMinutes: ["WAITING", "TRANSFERRED"].includes(ticket.status)
+        ? estimateWaitMinutes(waitingAhead, averageServiceMinutes, activeCounters)
+        : 0,
+      activeCounters,
+      updatedAt: new Date().toISOString()
+    };
   }
 
   async callNext(branchId: string, serviceId: string, counterId?: string) {

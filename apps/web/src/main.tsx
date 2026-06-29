@@ -2,6 +2,7 @@ import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Building2, CheckCircle2, Languages, Monitor, RotateCcw, Ticket, UserRound, UsersRound, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { QRCodeSVG } from "qrcode.react";
 import { io } from "socket.io-client";
 import "./i18n.js";
 import "./styles.css";
@@ -13,6 +14,17 @@ type User = { id: string; email: string; name: string; role: string };
 type TicketRecord = { id: string; code: string; status: string; service?: Service; counter?: Counter | null; events?: { status: string; note?: string }[] };
 type Snapshot = { waiting: TicketRecord[]; called: TicketRecord[]; serving: TicketRecord[]; updatedAt?: string };
 type AdminOverview = { organization: { name: string; branches: Branch[]; users: User[] } | null };
+type TicketStatusView = {
+  ticket: TicketRecord;
+  branch: Branch;
+  service: Service;
+  counter: Counter | null;
+  position: number;
+  numberAhead: number;
+  estimatedWaitMinutes: number;
+  activeCounters: number;
+  updatedAt: string;
+};
 
 const apiBase = import.meta.env.VITE_API_BASE ?? "http://localhost:3000";
 
@@ -139,6 +151,8 @@ function KioskPage({ branch, setMessage }: AppContext) {
   const { i18n, t } = useTranslation();
   const [createdTicket, setCreatedTicket] = useState<TicketRecord | null>(null);
   const services = branch?.services ?? [];
+  const joinUrl = `${window.location.origin}/join/${branch?.slug ?? "main"}`;
+  const ticketUrl = createdTicket ? `${window.location.origin}/ticket/${createdTicket.id}` : joinUrl;
 
   async function createTicket(serviceId: string) {
     if (!branch) return;
@@ -166,13 +180,14 @@ function KioskPage({ branch, setMessage }: AppContext) {
           <>
             <span>{t("yourTicket")}</span>
             <strong>{createdTicket.code}</strong>
+            <QrPanel value={ticketUrl} label="Scan to track your place" />
             <a href={`/ticket/${createdTicket.id}`}>Track ticket</a>
           </>
         ) : (
           <>
             <span>{t("customer")}</span>
-            <strong>QR</strong>
-            <small>/join/{branch?.slug ?? "main"}</small>
+            <QrPanel value={joinUrl} label="Scan to join from your phone" />
+            <small>{new URL(joinUrl).pathname}</small>
           </>
         )}
       </div>
@@ -361,20 +376,42 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
 }
 
 function TicketPage({ ticketId }: { ticketId: string }) {
-  const [ticket, setTicket] = useState<TicketRecord | null>(null);
+  const { i18n } = useTranslation();
+  const [status, setStatus] = useState<TicketStatusView | null>(null);
 
   useEffect(() => {
-    void api<TicketRecord>(`/tickets/${ticketId}`).then(setTicket);
+    const load = () => void api<TicketStatusView>(`/tickets/${ticketId}/status`).then(setStatus);
+    load();
+    const interval = window.setInterval(load, 5000);
+    return () => window.clearInterval(interval);
   }, [ticketId]);
 
-  if (!ticket) return <EmptyState label="Loading ticket..." />;
+  if (!status) return <EmptyState label="Loading ticket..." />;
+
+  const trackingUrl = `${window.location.origin}/ticket/${ticketId}`;
+  const ticket = status.ticket;
 
   return (
     <section className="ticket-page">
       <span>Your ticket</span>
       <strong>{ticket.code}</strong>
-      <p>{ticket.status}</p>
-      <div className="table-list">
+      <p>{ticket.status} · {localName(status.service, i18n.language)}</p>
+      <div className="status-metrics">
+        <div>
+          <span>Position</span>
+          <strong>{status.position || "-"}</strong>
+        </div>
+        <div>
+          <span>Ahead</span>
+          <strong>{status.numberAhead}</strong>
+        </div>
+        <div>
+          <span>ETA</span>
+          <strong>{status.estimatedWaitMinutes}m</strong>
+        </div>
+      </div>
+      <QrPanel value={trackingUrl} label="Ticket tracking link" />
+      <div className="table-list event-list">
         {ticket.events?.map((event, index) => (
           <div key={`${event.status}-${index}`}>
             <strong>{event.status}</strong>
@@ -383,6 +420,15 @@ function TicketPage({ ticketId }: { ticketId: string }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function QrPanel({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="qr-panel">
+      <QRCodeSVG value={value} size={150} marginSize={2} />
+      <span>{label}</span>
+    </div>
   );
 }
 

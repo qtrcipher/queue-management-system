@@ -31,5 +31,9 @@ export class TicketsController {
   get(@Param("ticketId") ticketId: string) {
     return this.queue.getTicket(ticketId);
   }
-}
 
+  @Get(":ticketId/status")
+  status(@Param("ticketId") ticketId: string) {
+    return this.queue.getTicketStatus(ticketId);
+  }
+}
