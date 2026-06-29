@@ -26,11 +26,12 @@ enum UserRole {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  branches  Branch[]
-  users     User[]
+  id                  String   @id @default(cuid())
+  name                String
+  ticketRetentionDays Int      @default(365)
+  createdAt           DateTime @default(now())
+  branches            Branch[]
+  users               User[]
 }
 
 model Branch {

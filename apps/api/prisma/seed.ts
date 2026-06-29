@@ -9,7 +9,8 @@ async function main() {
     update: {},
     create: {
       id: "seed-org",
-      name: "Demo Organization"
+      name: "Demo Organization",
+      ticketRetentionDays: 365
     }
   });
 

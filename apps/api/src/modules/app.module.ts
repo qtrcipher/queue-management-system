@@ -16,10 +16,11 @@ import { AuthService } from "./services/auth.service.js";
 import { NotificationsService } from "./services/notifications.service.js";
 import { PrismaService } from "./services/prisma.service.js";
 import { QueueService } from "./services/queue.service.js";
+import { RetentionService } from "./services/retention.service.js";
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
   controllers: [AdminController, AnalyticsController, AuthController, DisplayController, HealthController, PublicController, StaffController, TicketsController],
-  providers: [AnalyticsService, AuthService, NotificationsService, PrismaService, QueueGateway, QueueService, RolesGuard, SessionGuard]
+  providers: [AnalyticsService, AuthService, NotificationsService, PrismaService, QueueGateway, QueueService, RetentionService, RolesGuard, SessionGuard]
 })
 export class AppModule {}

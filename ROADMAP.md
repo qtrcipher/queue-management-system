@@ -10,13 +10,13 @@ This roadmap tracks the open-source core. Items may move as the project learns f
 - Role-based access control
 - Admin editing for services, counters, and users
 - Basic analytics and CSV export
+- Configurable ticket retention and purge action
 - End-to-end Playwright coverage for core queue and admin workflows
 - Arabic/English RTL/LTR foundation
 
 ## Next
 
 - Email notification templates and SMTP configuration UI
-- Data retention settings and purge jobs
 - Accessibility pass for keyboard focus, labels, and contrast
 
 ## Later

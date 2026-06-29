@@ -1,6 +1,6 @@
 import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BarChart3, Building2, CheckCircle2, Download, Languages, Monitor, RotateCcw, Ticket, UserRound, UsersRound, XCircle } from "lucide-react";
+import { BarChart3, Building2, CheckCircle2, Download, Languages, Monitor, RotateCcw, Ticket, Trash2, UserRound, UsersRound, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
 import { io } from "socket.io-client";
@@ -13,7 +13,8 @@ type Branch = { id: string; slug: string; nameEn: string; nameAr: string; servic
 type User = { id: string; email: string; name: string; role: string };
 type TicketRecord = { id: string; code: string; status: string; service?: Service; counter?: Counter | null; events?: { status: string; note?: string }[] };
 type Snapshot = { waiting: TicketRecord[]; called: TicketRecord[]; serving: TicketRecord[]; updatedAt?: string };
-type AdminOverview = { organization: { name: string; branches: Branch[]; users: User[] } | null };
+type AdminOverview = { organization: { name: string; ticketRetentionDays: number; branches: Branch[]; users: User[] } | null };
+type PurgeResult = { deleted: number; cutoff: string; retentionDays: number };
 type AnalyticsSummary = {
   totals: {
     issued: number;
@@ -294,6 +295,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState("AGENT");
+  const [ticketRetentionDays, setTicketRetentionDays] = useState(365);
 
   useEffect(() => {
     if (user) void loadAdmin();
@@ -311,6 +313,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     ]);
     setOverview(overviewData);
     setAnalytics(analyticsData);
+    setTicketRetentionDays(overviewData.organization?.ticketRetentionDays ?? 365);
     setBranch(overviewData.organization?.branches[0] ?? null);
   }
 
@@ -365,6 +368,22 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     await loadAdmin();
   }
 
+  async function updateRetention(event: FormEvent) {
+    event.preventDefault();
+    await api<{ ticketRetentionDays: number }>("/admin/organization/settings", {
+      method: "PATCH",
+      body: { ticketRetentionDays }
+    });
+    setMessage("Retention settings updated");
+    await loadAdmin();
+  }
+
+  async function purgeTickets() {
+    const result = await api<PurgeResult>("/admin/maintenance/purge-tickets", { method: "POST" });
+    setMessage(`${result.deleted} tickets purged`);
+    await loadAdmin();
+  }
+
   return (
     <section className="page-grid">
       <Panel title="Today" icon={<BarChart3 size={18} />}>
@@ -380,6 +399,25 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
           <Download size={16} />
           Export CSV
         </a>
+      </Panel>
+      <Panel title="Maintenance" icon={<Trash2 size={18} />}>
+        <form onSubmit={(event) => void updateRetention(event)} className="form-grid">
+          <label>
+            Ticket retention days
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={ticketRetentionDays}
+              onChange={(event) => setTicketRetentionDays(Number(event.target.value))}
+              required
+            />
+          </label>
+          <button className="primary-button">Save retention</button>
+        </form>
+        <button className="danger-button" onClick={() => void purgeTickets()}>
+          Purge old terminal tickets
+        </button>
       </Panel>
       <Panel title="Branches" icon={<Building2 size={18} />}>
         <div className="table-list">

@@ -160,7 +160,8 @@ nav a:hover {
 }
 
 .service-list button,
-.primary-button {
+.primary-button,
+.danger-button {
   background: #eef6f0;
   border: 1px solid #bfd8c8;
   border-radius: 8px;
@@ -175,6 +176,15 @@ nav a:hover {
   background: #1e6b4d;
   color: #ffffff;
   text-align: center;
+}
+
+.danger-button {
+  background: #fff1f0;
+  border-color: #f1b8b3;
+  color: #9f1d14;
+  margin-top: 12px;
+  text-align: center;
+  width: 100%;
 }
 
 .service-list button strong,

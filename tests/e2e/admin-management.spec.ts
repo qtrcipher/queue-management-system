@@ -17,6 +17,13 @@ test("admin can edit service, counter, and user records", async ({ page }) => {
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Admin")).toBeVisible();
 
+  await page.getByLabel("Ticket retention days").fill("180");
+  await page.getByRole("button", { name: "Save retention" }).click();
+  await expect(page.getByRole("status")).toContainText("Retention settings updated");
+  await expect(page.getByLabel("Ticket retention days")).toHaveValue("180");
+  await page.getByRole("button", { name: "Purge old terminal tickets" }).click();
+  await expect(page.getByRole("status")).toContainText("0 tickets purged");
+
   const priorityService = page.getByRole("form", { name: "Edit service B" });
   await priorityService.getByLabel("Name").fill("Priority Desk");
   await priorityService.getByRole("checkbox", { name: "Active" }).uncheck();
