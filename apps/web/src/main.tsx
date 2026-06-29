@@ -322,6 +322,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [branchName, setBranchName] = useState("");
   const [branchSlug, setBranchSlug] = useState("");
+  const [selectedBranchId, setSelectedBranchId] = useState("");
   const [serviceName, setServiceName] = useState("");
   const [servicePrefix, setServicePrefix] = useState("");
   const [counterName, setCounterName] = useState("");
@@ -346,9 +347,9 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
   if (!user) return <LoginPanel onLogin={setUser} />;
 
   const branches = overview?.organization?.branches ?? [];
-  const selectedBranch = branches[0];
+  const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? branches[0];
 
-  async function loadAdmin() {
+  async function loadAdmin(preferredBranchId?: string) {
     const [overviewData, analyticsData] = await Promise.all([
       api<AdminOverview>("/admin/bootstrap"),
       api<AnalyticsSummary>("/analytics/summary")
@@ -366,19 +367,23 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         ticketSmsTemplate: overviewData.organization.ticketSmsTemplate
       });
     }
-    setBranch(overviewData.organization?.branches[0] ?? null);
+    const nextBranches = overviewData.organization?.branches ?? [];
+    const nextBranchId = preferredBranchId ?? selectedBranchId;
+    const nextBranch = nextBranches.find((branch) => branch.id === nextBranchId) ?? nextBranches[0] ?? null;
+    setSelectedBranchId(nextBranch?.id ?? "");
+    setBranch(nextBranch);
   }
 
   async function createBranch(event: FormEvent) {
     event.preventDefault();
-    await api<Branch>("/admin/branches", {
+    const created = await api<Branch>("/admin/branches", {
       method: "POST",
       body: { nameEn: branchName, nameAr: branchName, slug: branchSlug }
     });
     setBranchName("");
     setBranchSlug("");
     setMessage("Branch created");
-    await loadAdmin();
+    await loadAdmin(created.id);
   }
 
   async function createService(event: FormEvent) {
@@ -391,7 +396,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     setServiceName("");
     setServicePrefix("");
     setMessage("Service created");
-    await loadAdmin();
+    await loadAdmin(selectedBranch.id);
   }
 
   async function createCounter(event: FormEvent) {
@@ -403,7 +408,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     });
     setCounterName("");
     setMessage("Counter created");
-    await loadAdmin();
+    await loadAdmin(selectedBranch.id);
   }
 
   async function createUser(event: FormEvent) {
@@ -417,7 +422,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     setUserPassword("");
     setUserRole("AGENT");
     setMessage("User created");
-    await loadAdmin();
+    await loadAdmin(selectedBranch?.id);
   }
 
   async function updateRetention(event: FormEvent) {
@@ -430,13 +435,13 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     });
     setTicketRetentionDays(retentionDays);
     setMessage("Retention settings updated");
-    await loadAdmin();
+    await loadAdmin(selectedBranch?.id);
   }
 
   async function purgeTickets() {
     const result = await api<PurgeResult>("/admin/maintenance/purge-tickets", { method: "POST" });
     setMessage(`${result.deleted} tickets purged`);
-    await loadAdmin();
+    await loadAdmin(selectedBranch?.id);
   }
 
   async function updateNotifications(event: FormEvent) {
@@ -446,11 +451,17 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
       body: notificationSettings
     });
     setMessage("Notification settings updated");
-    await loadAdmin();
+    await loadAdmin(selectedBranch?.id);
   }
 
   function updateNotificationField<K extends keyof NotificationSettings>(key: K, value: NotificationSettings[K]) {
     setNotificationSettings((current) => ({ ...current, [key]: value }));
+  }
+
+  function changeManagedBranch(branchId: string) {
+    const nextBranch = branches.find((branch) => branch.id === branchId) ?? null;
+    setSelectedBranchId(branchId);
+    setBranch(nextBranch);
   }
 
   return (
@@ -536,6 +547,16 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
             </div>
           ))}
         </div>
+        {branches.length ? (
+          <label className="branch-selector">
+            Manage branch
+            <select value={selectedBranch?.id ?? ""} onChange={(event) => changeManagedBranch(event.target.value)}>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>{localName(branch, i18n.language)}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <form onSubmit={(event) => void createBranch(event)} className="form-grid">
           <label>Branch name<input value={branchName} onChange={(event) => setBranchName(event.target.value)} required /></label>
           <label>Slug<input value={branchSlug} onChange={(event) => setBranchSlug(event.target.value)} pattern="[a-z0-9-]+" required /></label>
@@ -552,7 +573,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
               onSave={async (serviceId, body) => {
                 await api<Service>(`/admin/services/${serviceId}`, { method: "PATCH", body });
                 setMessage("Service updated");
-                await loadAdmin();
+                await loadAdmin(selectedBranch.id);
               }}
             />
           ))}
@@ -572,7 +593,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
               onSave={async (counterId, body) => {
                 await api<Counter>(`/admin/counters/${counterId}`, { method: "PATCH", body });
                 setMessage("Counter updated");
-                await loadAdmin();
+                await loadAdmin(selectedBranch.id);
               }}
             />
           ))}
@@ -591,7 +612,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
               onSave={async (userId, body) => {
                 await api<User>(`/admin/users/${userId}`, { method: "PATCH", body });
                 setMessage("User updated");
-                await loadAdmin();
+                await loadAdmin(selectedBranch?.id);
               }}
             />
           ))}

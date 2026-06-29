@@ -312,6 +312,10 @@ textarea {
   margin-top: 0;
 }
 
+.branch-selector {
+  margin-top: 12px;
+}
+
 .form-error {
   color: #b42318;
   margin: 0;

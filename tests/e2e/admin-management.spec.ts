@@ -32,6 +32,9 @@ test("admin can edit service, counter, and user records", async ({ page }) => {
   await expect(page.getByRole("status")).toContainText("Notification settings updated");
   await expect(notificationsPanel.getByLabel("Email subject")).toHaveValue("Ticket {{code}} is ready");
 
+  const branchesPanel = page.locator(".panel", { has: page.getByRole("heading", { name: "Branches" }) });
+  await expect(branchesPanel.getByLabel("Manage branch")).toHaveValue(/.+/);
+
   const priorityService = page.getByRole("form", { name: "Edit service B" });
   await priorityService.getByLabel("Name").fill("Priority Desk");
   await priorityService.getByRole("checkbox", { name: "Active" }).uncheck();
