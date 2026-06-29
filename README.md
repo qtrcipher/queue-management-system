@@ -1,9 +1,9 @@
-# OpenQueue
+# Queue Management System
 
-[![CI](https://github.com/qtrcipher/openqueue/actions/workflows/ci.yml/badge.svg)](https://github.com/qtrcipher/openqueue/actions/workflows/ci.yml)
+[![CI](https://github.com/qtrcipher/queue-management-system/actions/workflows/ci.yml/badge.svg)](https://github.com/qtrcipher/queue-management-system/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-OpenQueue is open-source queue management for physical and virtual queues. It is built for self-hosted branches that need kiosk check-in, staff counter workflows, public displays, QR/web joining, and Arabic/English support.
+Queue Management System is open-source queue management for physical and virtual queues. It is built for self-hosted branches that need kiosk check-in, staff counter workflows, public displays, QR/web joining, and Arabic/English support.
 
 ## Status
 
