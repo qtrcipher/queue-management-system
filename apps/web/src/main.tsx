@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useId, useMemo, useState } from "react";
+import React, { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BarChart3, Building2, CheckCircle2, Download, Languages, Mail, Monitor, RotateCcw, Ticket, Trash2, UserRound, UsersRound, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -359,6 +359,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     ticketEmailBody: "Your ticket number is {{code}} for {{serviceName}}. Track it at {{ticketUrl}}.",
     ticketSmsTemplate: "Your queue ticket is {{code}}"
   });
+  const loadAdminRequestId = useRef(0);
 
   useEffect(() => {
     if (user) void loadAdmin();
@@ -370,10 +371,13 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? branches[0];
 
   async function loadAdmin(preferredBranchId?: string) {
+    const requestId = loadAdminRequestId.current + 1;
+    loadAdminRequestId.current = requestId;
     const [overviewData, analyticsData] = await Promise.all([
       api<AdminOverview>("/admin/bootstrap"),
       api<AnalyticsSummary>("/analytics/summary")
     ]);
+    if (requestId !== loadAdminRequestId.current) return;
     setOverview(overviewData);
     setAnalytics(analyticsData);
     setTicketRetentionDays(overviewData.organization?.ticketRetentionDays ?? 365);
