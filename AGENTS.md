@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a TypeScript/pnpm monorepo for an open-source queue management system.
+This is the `queue-management-system` repository: a TypeScript/pnpm monorepo for an open-source, self-hosted queue management system. Use "Queue Management System" in public-facing repository copy. The `QMS` abbreviation remains valid for internal package names, environment variables, database names, and code identifiers that already use it.
 
 - `apps/api/`: NestJS API, Prisma schema, seed data, auth, queues, analytics, and notifications.
 - `apps/web/`: React + Vite single-page app for kiosk, staff, display, admin, and ticket status flows.
@@ -26,7 +26,7 @@ Run commands from the repository root:
 
 ## Coding Style & Naming Conventions
 
-Use strict TypeScript and the existing ESM style. Keep imports explicit, prefer small service/controller methods, and follow existing two-space JSON formatting. React components use `PascalCase`; helpers and hooks use `camelCase`; files use descriptive lowercase names such as `queue.service.ts` or `bug_report.yml`.
+Use strict TypeScript and the existing ESM style. Keep imports explicit, prefer small service/controller methods, and follow existing two-space JSON formatting. React components use `PascalCase`; helpers and hooks use `camelCase`; files use descriptive lowercase names such as `queue.service.ts` or `bug_report.yml`. Keep existing workspace package names under `@qms/*` unless a full package-rename migration is explicitly requested.
 
 ## Testing Guidelines
 
@@ -35,6 +35,10 @@ Unit tests use Vitest and live beside the code as `*.test.ts`. Add focused tests
 ## Commit & Pull Request Guidelines
 
 Git history uses short imperative messages such as `Add public demo environment`. Keep commits scoped and signed off for DCO compliance: `git commit -s -m "Fix ticket privacy"`. Pull requests should include a summary, linked issue when available, screenshots or recordings for UI changes, and the checks run.
+
+## Documentation Guidelines
+
+Use `Queue Management System` for the repository/project title and plain "queue management system" when describing the category. Keep deployment examples on placeholder domains such as `qms.example.com` unless the user provides a real domain. Do not replace working technical identifiers like `QMS_AUTO_DB_SYNC`, `qms_session`, or `@qms/api` for wording-only changes.
 
 ## Security & Configuration Tips
 
