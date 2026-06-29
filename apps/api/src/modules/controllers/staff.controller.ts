@@ -1,5 +1,6 @@
-import { Body, Controller, Param, Post } from "@nestjs/common";
+import { Body, Controller, Param, Post, UseGuards } from "@nestjs/common";
 import { IsOptional, IsString } from "class-validator";
+import { SessionGuard } from "../guards/session.guard.js";
 import { QueueService } from "../services/queue.service.js";
 
 class StaffActionDto {
@@ -8,7 +9,13 @@ class StaffActionDto {
   counterId?: string;
 }
 
+class TransferDto {
+  @IsString()
+  serviceId!: string;
+}
+
 @Controller("staff")
+@UseGuards(SessionGuard)
 export class StaffController {
   constructor(private readonly queue: QueueService) {}
 
@@ -31,5 +38,24 @@ export class StaffController {
   noShow(@Param("ticketId") ticketId: string) {
     return this.queue.updateTicket(ticketId, "NO_SHOW");
   }
-}
 
+  @Post("tickets/:ticketId/recall")
+  recall(@Param("ticketId") ticketId: string) {
+    return this.queue.recallTicket(ticketId);
+  }
+
+  @Post("tickets/:ticketId/requeue")
+  requeue(@Param("ticketId") ticketId: string) {
+    return this.queue.updateTicket(ticketId, "WAITING");
+  }
+
+  @Post("tickets/:ticketId/cancel")
+  cancel(@Param("ticketId") ticketId: string) {
+    return this.queue.updateTicket(ticketId, "CANCELLED");
+  }
+
+  @Post("tickets/:ticketId/transfer")
+  transfer(@Param("ticketId") ticketId: string, @Body() body: TransferDto) {
+    return this.queue.transferTicket(ticketId, body.serviceId);
+  }
+}

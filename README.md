@@ -22,6 +22,14 @@ pnpm dev
 - API health: http://localhost:3000/health
 - Mailpit: http://localhost:8025
 
+Useful web routes:
+
+- `/kiosk`: touch-first ticket creation
+- `/staff`: staff queue controls
+- `/display`: public waiting-room display
+- `/admin`: branch, service, and counter setup
+- `/join/main`: customer QR join flow for the seeded branch
+
 Seed admin:
 
 - Email: `admin@example.com`
@@ -31,8 +39,9 @@ Seed admin:
 
 - Multi-branch, multi-service, multi-counter queue model
 - Kiosk ticket creation and QR/web join flow
-- Staff actions: call next, recall, start, complete, no-show, transfer
+- Protected staff actions: call next, recall, start, complete, no-show, requeue, cancel, transfer
 - Public display state and customer ticket tracking
+- Built-in email/password session auth with httpOnly cookies
 - WebSocket queue updates
 - Arabic/English UI with RTL/LTR direction switching
 - SMTP email provider and mock SMS provider
@@ -52,4 +61,3 @@ research      Product research references
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
-

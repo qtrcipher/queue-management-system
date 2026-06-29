@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import type { TicketStatus } from "@prisma/client";
+import { Prisma, type TicketStatus } from "@prisma/client";
 import { NotificationsService } from "./notifications.service.js";
 import { PrismaService } from "./prisma.service.js";
 import { QueueGateway } from "../queue.gateway.js";
@@ -53,7 +53,7 @@ export class QueueService {
       });
 
       return created;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     await this.notifications.sendMockSms(input.customerPhone, `Your queue ticket is ${ticket.code}`);
     this.gateway.emitQueueEvent("ticket.created", ticket);
@@ -93,7 +93,7 @@ export class QueueService {
       });
 
       return updated;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     if (ticket) this.gateway.emitQueueEvent("ticket.called", ticket);
     return ticket;
@@ -110,6 +110,55 @@ export class QueueService {
       },
       include: { service: true, counter: true }
     });
+
+    this.gateway.emitQueueEvent("ticket.updated", ticket);
+    return ticket;
+  }
+
+  async recallTicket(ticketId: string) {
+    const ticket = await this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: "CALLED",
+        calledAt: new Date(),
+        events: { create: { status: "CALLED", note: "Ticket recalled by staff" } }
+      },
+      include: { service: true, counter: true }
+    });
+
+    this.gateway.emitQueueEvent("ticket.called", ticket);
+    return ticket;
+  }
+
+  async transferTicket(ticketId: string, serviceId: string) {
+    const service = await this.prisma.service.findUnique({ where: { id: serviceId } });
+    if (!service) throw new NotFoundException("Service not found");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const ticket = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.ticket.findUnique({ where: { id: ticketId } });
+      if (!existing) throw new NotFoundException("Ticket not found");
+
+      const sequence = await tx.ticketSequence.upsert({
+        where: { branchId_serviceId_date: { branchId: existing.branchId, serviceId, date: today } },
+        update: { nextValue: { increment: 1 } },
+        create: { branchId: existing.branchId, serviceId, date: today, nextValue: 2 }
+      });
+      const number = sequence.nextValue - 1;
+
+      return tx.ticket.update({
+        where: { id: ticketId },
+        data: {
+          serviceId,
+          counterId: null,
+          number,
+          code: formatTicketCode(service.prefix, number),
+          status: "TRANSFERRED",
+          events: { create: { status: "TRANSFERRED", note: `Transferred to ${service.nameEn}` } }
+        },
+        include: { service: true, counter: true }
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     this.gateway.emitQueueEvent("ticket.updated", ticket);
     return ticket;

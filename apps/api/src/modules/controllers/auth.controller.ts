@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Post, Res } from "@nestjs/common";
+import { Body, Controller, Get, Post, Res, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
 import { IsEmail, IsString, MinLength } from "class-validator";
+import { CurrentUser } from "../decorators/current-user.decorator.js";
+import { SessionGuard, type SessionUser } from "../guards/session.guard.js";
 import { AuthService } from "../services/auth.service.js";
 
 class LoginDto {
@@ -35,8 +37,8 @@ export class AuthController {
   }
 
   @Get("me")
-  me() {
-    return { authenticated: false };
+  @UseGuards(SessionGuard)
+  me(@CurrentUser() user: SessionUser) {
+    return { authenticated: true, user };
   }
 }
-
