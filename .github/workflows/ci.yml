@@ -23,6 +23,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: cp .env.example .env
       - run: docker compose build api web
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e:docker
