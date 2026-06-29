@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable, UnauthorizedException } from "@n
 import type { User } from "@prisma/client";
 import { verify } from "argon2";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { sessionSecret } from "../security.js";
+import { SESSION_COOKIE_MAX_AGE_MS, sessionSecret } from "../security.js";
 import { PrismaService } from "./prisma.service.js";
 
 const MAX_LOGIN_FAILURES = 5;
@@ -30,7 +30,8 @@ export class AuthService {
     }
 
     this.loginAttempts.delete(attemptKey);
-    const token = this.sign(`${user.id}.${randomBytes(16).toString("hex")}`);
+    const expiresAt = Date.now() + SESSION_COOKIE_MAX_AGE_MS;
+    const token = this.sign(`${user.id}.${expiresAt}.${randomBytes(16).toString("hex")}`);
     return {
       token,
       user: { id: user.id, email: user.email, name: user.name, role: user.role }
@@ -41,12 +42,14 @@ export class AuthService {
     if (!token) throw new UnauthorizedException("Missing session");
 
     const parts = token.split(".");
-    if (parts.length !== 3) throw new UnauthorizedException("Invalid session");
+    if (parts.length !== 4) throw new UnauthorizedException("Invalid session");
 
-    const [userId, nonce, signature] = parts;
-    if (!userId || !nonce || !signature) throw new UnauthorizedException("Invalid session");
+    const [userId, expiresAtValue, nonce, signature] = parts;
+    if (!userId || !expiresAtValue || !nonce || !signature) throw new UnauthorizedException("Invalid session");
+    const expiresAt = Number(expiresAtValue);
+    if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) throw new UnauthorizedException("Session expired");
 
-    const value = `${userId}.${nonce}`;
+    const value = `${userId}.${expiresAtValue}.${nonce}`;
     const expected = this.signature(value);
     const expectedBuffer = Buffer.from(expected);
     const actualBuffer = Buffer.from(signature);

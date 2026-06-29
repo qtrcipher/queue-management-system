@@ -1,7 +1,9 @@
 import { Body, Controller, Param, Post, UseGuards } from "@nestjs/common";
 import { IsOptional, IsString } from "class-validator";
+import { CurrentUser } from "../decorators/current-user.decorator.js";
 import { Roles } from "../decorators/roles.decorator.js";
 import { RolesGuard } from "../guards/roles.guard.js";
+import type { SessionUser } from "../guards/session.guard.js";
 import { QueueService } from "../services/queue.service.js";
 
 class StaffActionDto {
@@ -22,42 +24,42 @@ export class StaffController {
   constructor(private readonly queue: QueueService) {}
 
   @Post(":branchId/services/:serviceId/call-next")
-  callNext(@Param("branchId") branchId: string, @Param("serviceId") serviceId: string, @Body() body: StaffActionDto) {
-    return this.queue.callNext(branchId, serviceId, body.counterId);
+  callNext(@CurrentUser() actor: SessionUser, @Param("branchId") branchId: string, @Param("serviceId") serviceId: string, @Body() body: StaffActionDto) {
+    return this.queue.callNext(branchId, serviceId, actor.organizationId, body.counterId);
   }
 
   @Post("tickets/:ticketId/start")
-  start(@Param("ticketId") ticketId: string) {
-    return this.queue.updateTicket(ticketId, "SERVING");
+  start(@CurrentUser() actor: SessionUser, @Param("ticketId") ticketId: string) {
+    return this.queue.updateTicket(ticketId, "SERVING", actor.organizationId);
   }
 
   @Post("tickets/:ticketId/complete")
-  complete(@Param("ticketId") ticketId: string) {
-    return this.queue.updateTicket(ticketId, "COMPLETED");
+  complete(@CurrentUser() actor: SessionUser, @Param("ticketId") ticketId: string) {
+    return this.queue.updateTicket(ticketId, "COMPLETED", actor.organizationId);
   }
 
   @Post("tickets/:ticketId/no-show")
-  noShow(@Param("ticketId") ticketId: string) {
-    return this.queue.updateTicket(ticketId, "NO_SHOW");
+  noShow(@CurrentUser() actor: SessionUser, @Param("ticketId") ticketId: string) {
+    return this.queue.updateTicket(ticketId, "NO_SHOW", actor.organizationId);
   }
 
   @Post("tickets/:ticketId/recall")
-  recall(@Param("ticketId") ticketId: string) {
-    return this.queue.recallTicket(ticketId);
+  recall(@CurrentUser() actor: SessionUser, @Param("ticketId") ticketId: string) {
+    return this.queue.recallTicket(ticketId, actor.organizationId);
   }
 
   @Post("tickets/:ticketId/requeue")
-  requeue(@Param("ticketId") ticketId: string) {
-    return this.queue.updateTicket(ticketId, "WAITING");
+  requeue(@CurrentUser() actor: SessionUser, @Param("ticketId") ticketId: string) {
+    return this.queue.updateTicket(ticketId, "WAITING", actor.organizationId);
   }
 
   @Post("tickets/:ticketId/cancel")
-  cancel(@Param("ticketId") ticketId: string) {
-    return this.queue.updateTicket(ticketId, "CANCELLED");
+  cancel(@CurrentUser() actor: SessionUser, @Param("ticketId") ticketId: string) {
+    return this.queue.updateTicket(ticketId, "CANCELLED", actor.organizationId);
   }
 
   @Post("tickets/:ticketId/transfer")
-  transfer(@Param("ticketId") ticketId: string, @Body() body: TransferDto) {
-    return this.queue.transferTicket(ticketId, body.serviceId);
+  transfer(@CurrentUser() actor: SessionUser, @Param("ticketId") ticketId: string, @Body() body: TransferDto) {
+    return this.queue.transferTicket(ticketId, body.serviceId, actor.organizationId);
   }
 }

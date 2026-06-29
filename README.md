@@ -1,5 +1,8 @@
 # QMS
 
+[![CI](https://github.com/qtrcipher/qms/actions/workflows/ci.yml/badge.svg)](https://github.com/qtrcipher/qms/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 Open-source queue management for physical and virtual queues. QMS is built for self-hosted branches that need kiosk check-in, staff counter workflows, public displays, QR/web joining, and Arabic/English support.
 
 ## Status
@@ -33,7 +36,7 @@ docker compose up --build
 - API health: http://localhost:3000/health
 - Mailpit: http://localhost:8025
 
-The API container applies the Prisma schema and loads seed data on startup for the current MVP. Use `docker compose ps` to confirm `api`, `web`, `postgres`, and `redis` are healthy or running before testing browser flows. Replace development secrets in `.env` before any production deployment.
+The local Compose file explicitly sets `QMS_AUTO_DB_SYNC=true`, so the API container applies the Prisma schema and loads seed data on startup for development. Use `docker compose ps` to confirm `api`, `web`, `postgres`, and `redis` are healthy or running before testing browser flows. Replace development secrets in `.env` before any production deployment.
 
 Useful web routes:
 

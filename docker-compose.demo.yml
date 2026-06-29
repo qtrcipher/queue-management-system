@@ -32,6 +32,7 @@ services:
       SMTP_HOST: mailpit
       WEB_ORIGIN: https://${DEMO_WEB_HOST:?Set DEMO_WEB_HOST in .env.demo}
       TRUST_PROXY: "true"
+      QMS_AUTO_DB_SYNC: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,6 +47,8 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         VITE_API_BASE: https://${DEMO_API_HOST:?Set DEMO_API_HOST in .env.demo}
+    environment:
+      QMS_API_CONNECT_SRC: "'self' https://${DEMO_API_HOST:?Set DEMO_API_HOST in .env.demo} wss://${DEMO_API_HOST:?Set DEMO_API_HOST in .env.demo}"
     depends_on:
       api:
         condition: service_healthy

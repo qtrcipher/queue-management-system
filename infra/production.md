@@ -22,6 +22,7 @@ Set the API CORS and ticket-link origin to the public web URL:
 NODE_ENV=production
 WEB_ORIGIN=https://qms.example.com
 TRUST_PROXY=true
+QMS_AUTO_DB_SYNC=false
 ```
 
 The API sets secure cookies when `NODE_ENV=production`; serve it only over HTTPS in that mode.
@@ -70,9 +71,11 @@ Before deploying, create a production-specific Compose file or override with the
 - Set `NODE_ENV=production` and the correct `WEB_ORIGIN` for `api`.
 - Set `TRUST_PROXY=true` only when the API is behind a trusted reverse proxy that controls `X-Forwarded-For`.
 - Build `web` with the production `VITE_API_BASE`.
+- Set the web container `QMS_API_CONNECT_SRC` to the exact API origins, for example `'self' https://api.qms.example.com wss://api.qms.example.com`.
+- Keep `QMS_AUTO_DB_SYNC=false` in production and run schema/seed commands intentionally during deployment.
 - Put a reverse proxy such as Caddy, Nginx, Traefik, or a managed load balancer in front of `web` and `api`.
 
-The current API container runs `pnpm db:push` and `pnpm db:seed` on startup. The seed is idempotent for the MVP, but review this behavior before strict change-controlled production use.
+Development and demo Compose files opt into automatic `pnpm db:push` and `pnpm db:seed` with `QMS_AUTO_DB_SYNC=true`. Production deployments should leave this disabled and run data changes as explicit release steps.
 
 ## Security Controls
 
@@ -120,13 +123,14 @@ Forward standard proxy headers and enable WebSocket upgrades for API traffic so 
 
 1. Copy `.env.example` to a server-only `.env` and replace every development value.
 2. Build the web image with the public API URL.
-3. Start the stack: `docker compose up -d`.
-4. Check health: `docker compose ps` and `curl -fsS https://api.qms.example.com/health`.
-5. Sign in with the seeded owner account, then immediately change or replace the default `admin@example.com` credentials.
-6. Configure real branch, service, counter, user, and notification settings.
-7. Run a test ticket through `/kiosk`, `/staff`, `/display`, and `/ticket/:id`.
-8. Confirm login, ticket creation, and admin saves work through the public HTTPS origin.
-9. Create and validate a database backup using [Backup and Restore](backup-restore.md).
+3. Start dependencies and run database setup intentionally: `docker compose up -d postgres redis`, then `docker compose run --rm api pnpm db:push` and `docker compose run --rm api pnpm db:seed`.
+4. Start the full stack: `docker compose up -d`.
+5. Check health: `docker compose ps` and `curl -fsS https://api.qms.example.com/health`.
+6. Sign in with the seeded owner account, then immediately change or replace the default `admin@example.com` credentials.
+7. Configure real branch, service, counter, user, and notification settings.
+8. Run a test ticket through `/kiosk`, `/staff`, `/display`, and `/ticket/:id`.
+9. Confirm login, ticket creation, and admin saves work through the public HTTPS origin.
+10. Create and validate a database backup using [Backup and Restore](backup-restore.md).
 
 ## Operations
 

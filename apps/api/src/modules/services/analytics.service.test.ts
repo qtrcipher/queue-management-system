@@ -47,9 +47,10 @@ describe("AnalyticsService", () => {
       }
     };
 
-    const summary = await new AnalyticsService(prisma as never).summary("2026-06-29", "2026-06-29");
+    const summary = await new AnalyticsService(prisma as never).summary("org-1", "2026-06-29", "2026-06-29");
 
     expect(prisma.branch.findMany).toHaveBeenCalledWith({
+      where: { organizationId: "org-1" },
       include: {
         counters: true,
         services: true,
@@ -97,4 +98,3 @@ describe("AnalyticsService", () => {
     ]);
   });
 });
-

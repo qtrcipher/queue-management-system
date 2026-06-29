@@ -7,7 +7,9 @@ export const SESSION_COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const DEVELOPMENT_SESSION_SECRET = "development-secret";
 const WEAK_SESSION_SECRETS = new Set([
   DEVELOPMENT_SESSION_SECRET,
-  "change-this-development-secret"
+  "change-this-development-secret",
+  "replace-with-at-least-32-random-characters-before-deploying",
+  "replace-with-at-least-32-random-bytes"
 ]);
 
 function isProduction() {
@@ -37,7 +39,7 @@ export function validateSecurityConfig() {
   if (!isProduction()) return;
 
   const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32 || WEAK_SESSION_SECRETS.has(secret)) {
+  if (!secret || secret.length < 32 || WEAK_SESSION_SECRETS.has(secret) || secret.includes("replace-with")) {
     throw new Error("SESSION_SECRET must be set to a strong value in production.");
   }
 

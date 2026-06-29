@@ -8,6 +8,7 @@
 - [ ] `pnpm typecheck`
 - [ ] `pnpm test`
 - [ ] `pnpm build`
+- [ ] `pnpm audit --prod --audit-level moderate`
 - [ ] Commits are signed off with DCO (`git commit -s`)
 
 ## Screenshots

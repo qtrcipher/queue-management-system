@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, type TicketSource, type TicketStatus } from "@prisma/client";
+import { Prisma, type Counter, type Service, type Ticket, type TicketEvent, type TicketSource, type TicketStatus } from "@prisma/client";
 import { NotificationsService } from "./notifications.service.js";
 import { PrismaService } from "./prisma.service.js";
 import { QueueGateway } from "../queue.gateway.js";
@@ -22,6 +22,15 @@ interface ScheduleAppointmentInput {
   customerPhone?: string;
   customerEmail?: string;
 }
+
+type PublicTicketInput = Pick<Ticket,
+  "id" | "branchId" | "serviceId" | "counterId" | "source" | "number" | "code" | "status" |
+  "scheduledFor" | "checkedInAt" | "createdAt" | "issuedAt" | "calledAt" | "startedAt" | "completedAt"
+> & {
+  service?: Service;
+  counter?: Counter | null;
+  events?: Pick<TicketEvent, "status" | "note" | "createdAt">[];
+};
 
 function formatTicketCode(prefix: string, number: number): string {
   return `${prefix.toUpperCase()}-${number.toString().padStart(3, "0")}`;
@@ -126,7 +135,7 @@ export class QueueService {
       include: { service: true, counter: true, events: { orderBy: { createdAt: "desc" } } }
     });
     if (!ticket) throw new NotFoundException("Ticket not found");
-    return ticket;
+    return this.publicTicket(ticket);
   }
 
   async getTicketStatus(ticketId: string) {
@@ -180,7 +189,7 @@ export class QueueService {
       : 5;
 
     return {
-      ticket,
+      ticket: this.publicTicket(ticket),
       branch: ticket.branch,
       service: ticket.service,
       counter: ticket.counter,
@@ -194,7 +203,9 @@ export class QueueService {
     };
   }
 
-  async callNext(branchId: string, serviceId: string, counterId?: string) {
+  async callNext(branchId: string, serviceId: string, organizationId: string, counterId?: string) {
+    await this.assertServiceInOrganization(serviceId, organizationId, branchId);
+    if (counterId) await this.assertCounterInOrganization(counterId, organizationId, branchId);
     const now = new Date();
     const ticket = await this.prisma.$transaction(async (tx) => {
       const next = await tx.ticket.findFirst({
@@ -226,7 +237,8 @@ export class QueueService {
     return ticket;
   }
 
-  async updateTicket(ticketId: string, status: TicketStatus) {
+  async updateTicket(ticketId: string, status: TicketStatus, organizationId: string) {
+    await this.assertTicketInOrganization(ticketId, organizationId);
     const ticket = await this.prisma.ticket.update({
       where: { id: ticketId },
       data: {
@@ -242,7 +254,8 @@ export class QueueService {
     return ticket;
   }
 
-  async recallTicket(ticketId: string) {
+  async recallTicket(ticketId: string, organizationId: string) {
+    await this.assertTicketInOrganization(ticketId, organizationId);
     const ticket = await this.prisma.ticket.update({
       where: { id: ticketId },
       data: {
@@ -257,14 +270,17 @@ export class QueueService {
     return ticket;
   }
 
-  async transferTicket(ticketId: string, serviceId: string) {
+  async transferTicket(ticketId: string, serviceId: string, organizationId: string) {
     const service = await this.prisma.service.findUnique({ where: { id: serviceId } });
     if (!service) throw new NotFoundException("Service not found");
+    await this.assertServiceInOrganization(serviceId, organizationId);
+    await this.assertTicketInOrganization(ticketId, organizationId);
 
     const today = new Date().toISOString().slice(0, 10);
     const ticket = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.ticket.findUnique({ where: { id: ticketId } });
       if (!existing) throw new NotFoundException("Ticket not found");
+      if (service.branchId !== existing.branchId) throw new BadRequestException("Service does not belong to this branch");
 
       const sequence = await tx.ticketSequence.upsert({
         where: { branchId_serviceId_date: { branchId: existing.branchId, serviceId, date: today } },
@@ -312,5 +328,52 @@ export class QueueService {
       serving: tickets.filter((ticket) => ticket.status === "SERVING"),
       updatedAt: new Date().toISOString()
     };
+  }
+
+  private publicTicket(ticket: PublicTicketInput) {
+    return {
+      id: ticket.id,
+      branchId: ticket.branchId,
+      serviceId: ticket.serviceId,
+      counterId: ticket.counterId,
+      source: ticket.source,
+      number: ticket.number,
+      code: ticket.code,
+      status: ticket.status,
+      scheduledFor: ticket.scheduledFor,
+      checkedInAt: ticket.checkedInAt,
+      createdAt: ticket.createdAt,
+      issuedAt: ticket.issuedAt,
+      calledAt: ticket.calledAt,
+      startedAt: ticket.startedAt,
+      completedAt: ticket.completedAt,
+      service: ticket.service,
+      counter: ticket.counter,
+      events: ticket.events?.map((event) => ({ status: event.status, note: event.note, createdAt: event.createdAt }))
+    };
+  }
+
+  private async assertTicketInOrganization(ticketId: string, organizationId: string) {
+    const ticket = await this.prisma.ticket.findFirst({
+      where: { id: ticketId, branch: { organizationId } },
+      select: { id: true }
+    });
+    if (!ticket) throw new NotFoundException("Ticket not found");
+  }
+
+  private async assertServiceInOrganization(serviceId: string, organizationId: string, branchId?: string) {
+    const service = await this.prisma.service.findFirst({
+      where: { id: serviceId, ...(branchId ? { branchId } : {}), branch: { organizationId } },
+      select: { id: true }
+    });
+    if (!service) throw new NotFoundException("Service not found");
+  }
+
+  private async assertCounterInOrganization(counterId: string, organizationId: string, branchId?: string) {
+    const counter = await this.prisma.counter.findFirst({
+      where: { id: counterId, ...(branchId ? { branchId } : {}), branch: { organizationId } },
+      select: { id: true }
+    });
+    if (!counter) throw new NotFoundException("Counter not found");
   }
 }

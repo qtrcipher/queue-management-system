@@ -2,6 +2,55 @@ import { describe, expect, it, vi } from "vitest";
 import { QueueService } from "./queue.service.js";
 
 describe("QueueService appointments", () => {
+  it("redacts public ticket customer contact fields", async () => {
+    const issuedAt = new Date("2026-06-29T08:00:00.000Z");
+    const prisma = {
+      ticket: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ticket-1",
+          branchId: "branch-1",
+          serviceId: "service-1",
+          counterId: null,
+          source: "WALK_IN",
+          number: 1,
+          code: "A-001",
+          status: "WAITING",
+          customerName: "Mona",
+          customerPhone: "+97455550000",
+          customerEmail: "mona@example.com",
+          scheduledFor: null,
+          checkedInAt: null,
+          createdAt: issuedAt,
+          issuedAt,
+          calledAt: null,
+          startedAt: null,
+          completedAt: null,
+          service: { id: "service-1", prefix: "A", nameEn: "General", nameAr: "عام" },
+          counter: null,
+          events: [
+            {
+              id: "event-1",
+              ticketId: "ticket-1",
+              status: "WAITING",
+              note: "Ticket created",
+              createdAt: issuedAt
+            }
+          ]
+        })
+      }
+    };
+    const gateway = { emitQueueEvent: vi.fn() };
+    const notifications = { sendTicketCreated: vi.fn() };
+
+    const ticket = await new QueueService(prisma as never, gateway as never, notifications as never).getTicket("ticket-1");
+
+    expect(ticket).toMatchObject({ id: "ticket-1", code: "A-001", status: "WAITING" });
+    expect(ticket).not.toHaveProperty("customerName");
+    expect(ticket).not.toHaveProperty("customerPhone");
+    expect(ticket).not.toHaveProperty("customerEmail");
+    expect(ticket.events).toEqual([{ status: "WAITING", note: "Ticket created", createdAt: issuedAt }]);
+  });
+
   it("creates scheduled appointments as appointment tickets", async () => {
     const scheduledFor = new Date("2026-06-29T09:30:00.000Z");
     const tx = {
@@ -87,12 +136,27 @@ describe("QueueService appointments", () => {
       }
     };
     const prisma = {
+      service: {
+        findFirst: vi.fn().mockResolvedValue({ id: "service-1" })
+      },
+      counter: {
+        findFirst: vi.fn().mockResolvedValue({ id: "counter-1" })
+      },
       $transaction: vi.fn().mockImplementation(async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx))
     };
     const gateway = { emitQueueEvent: vi.fn() };
     const notifications = { sendTicketCreated: vi.fn() };
 
-    await new QueueService(prisma as never, gateway as never, notifications as never).callNext("branch-1", "service-1", "counter-1");
+    await new QueueService(prisma as never, gateway as never, notifications as never).callNext("branch-1", "service-1", "org-1", "counter-1");
+
+    expect(prisma.service.findFirst).toHaveBeenCalledWith({
+      where: { id: "service-1", branchId: "branch-1", branch: { organizationId: "org-1" } },
+      select: { id: true }
+    });
+    expect(prisma.counter.findFirst).toHaveBeenCalledWith({
+      where: { id: "counter-1", branchId: "branch-1", branch: { organizationId: "org-1" } },
+      select: { id: true }
+    });
 
     expect(tx.ticket.findFirst).toHaveBeenCalledWith({
       where: {

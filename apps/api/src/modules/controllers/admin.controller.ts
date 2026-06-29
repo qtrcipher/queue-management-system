@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, NotFoundException, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 import { hash } from "argon2";
 import { IsBoolean, IsEmail, IsEnum, IsInt, IsISO8601, IsOptional, IsString, Matches, Max, Min, MinLength } from "class-validator";
@@ -181,8 +181,9 @@ export class AdminController {
   ) {}
 
   @Get("bootstrap")
-  async overview() {
+  async overview(@CurrentUser() actor: SessionUser) {
     const organization = await this.prisma.organization.findFirst({
+      where: { id: actor.organizationId },
       include: {
         branches: {
           include: {
@@ -201,7 +202,8 @@ export class AdminController {
     const appointments = await this.prisma.ticket.findMany({
       where: {
         source: "APPOINTMENT",
-        status: { in: ["WAITING", "TRANSFERRED", "CALLED", "SERVING"] }
+        status: { in: ["WAITING", "TRANSFERRED", "CALLED", "SERVING"] },
+        branch: { organizationId: actor.organizationId }
       },
       include: { branch: true, service: true, counter: true },
       orderBy: { scheduledFor: "asc" },
@@ -212,8 +214,8 @@ export class AdminController {
   }
 
   @Post("branches")
-  async createBranch(@Body() body: CreateBranchDto) {
-    const organization = await this.prisma.organization.findFirstOrThrow();
+  async createBranch(@CurrentUser() actor: SessionUser, @Body() body: CreateBranchDto) {
+    const organization = await this.prisma.organization.findUniqueOrThrow({ where: { id: actor.organizationId } });
     return this.prisma.branch.create({
       data: { organizationId: organization.id, nameEn: body.nameEn, nameAr: body.nameAr, slug: body.slug },
       include: { counters: true, services: true }
@@ -267,7 +269,9 @@ export class AdminController {
   }
 
   @Post("appointments")
-  scheduleAppointment(@Body() body: ScheduleAppointmentDto) {
+  async scheduleAppointment(@CurrentUser() actor: SessionUser, @Body() body: ScheduleAppointmentDto) {
+    await this.assertBranchInOrganization(body.branchId, actor.organizationId);
+    await this.assertServiceInOrganization(body.serviceId, actor.organizationId, body.branchId);
     return this.queue.scheduleAppointment({
       branchId: body.branchId,
       serviceId: body.serviceId,
@@ -279,24 +283,28 @@ export class AdminController {
   }
 
   @Post("branches/:branchId/services")
-  async createService(@Param("branchId") branchId: string, @Body() body: CreateServiceDto) {
+  async createService(@CurrentUser() actor: SessionUser, @Param("branchId") branchId: string, @Body() body: CreateServiceDto) {
+    await this.assertBranchInOrganization(branchId, actor.organizationId);
     return this.prisma.service.create({
       data: { branchId, nameEn: body.nameEn, nameAr: body.nameAr, prefix: body.prefix.toUpperCase() }
     });
   }
 
   @Patch("services/:serviceId")
-  async updateService(@Param("serviceId") serviceId: string, @Body() body: UpdateServiceDto) {
+  async updateService(@CurrentUser() actor: SessionUser, @Param("serviceId") serviceId: string, @Body() body: UpdateServiceDto) {
+    await this.assertServiceInOrganization(serviceId, actor.organizationId);
     return this.prisma.service.update({ where: { id: serviceId }, data: body });
   }
 
   @Post("branches/:branchId/counters")
-  async createCounter(@Param("branchId") branchId: string, @Body() body: CreateCounterDto) {
+  async createCounter(@CurrentUser() actor: SessionUser, @Param("branchId") branchId: string, @Body() body: CreateCounterDto) {
+    await this.assertBranchInOrganization(branchId, actor.organizationId);
     return this.prisma.counter.create({ data: { branchId, nameEn: body.nameEn, nameAr: body.nameAr } });
   }
 
   @Patch("counters/:counterId")
-  async updateCounter(@Param("counterId") counterId: string, @Body() body: UpdateCounterDto) {
+  async updateCounter(@CurrentUser() actor: SessionUser, @Param("counterId") counterId: string, @Body() body: UpdateCounterDto) {
+    await this.assertCounterInOrganization(counterId, actor.organizationId);
     return this.prisma.counter.update({ where: { id: counterId }, data: body });
   }
 
@@ -323,6 +331,7 @@ export class AdminController {
 
   @Patch("users/:userId")
   async updateUser(@CurrentUser() actor: SessionUser, @Param("userId") userId: string, @Body() body: UpdateUserDto) {
+    await this.assertUserInOrganization(userId, actor.organizationId);
     const data: { name?: string; role?: UserRole; passwordHash?: string } = {};
     if (body.name) data.name = body.name;
     if (body.role) data.role = body.role;
@@ -339,5 +348,34 @@ export class AdminController {
     });
 
     return updated;
+  }
+
+  private async assertBranchInOrganization(branchId: string, organizationId: string) {
+    const branch = await this.prisma.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
+    if (!branch) throw new NotFoundException("Branch not found");
+  }
+
+  private async assertServiceInOrganization(serviceId: string, organizationId: string, branchId?: string) {
+    const service = await this.prisma.service.findFirst({
+      where: { id: serviceId, ...(branchId ? { branchId } : {}), branch: { organizationId } },
+      select: { id: true }
+    });
+    if (!service) throw new NotFoundException("Service not found");
+  }
+
+  private async assertCounterInOrganization(counterId: string, organizationId: string) {
+    const counter = await this.prisma.counter.findFirst({
+      where: { id: counterId, branch: { organizationId } },
+      select: { id: true }
+    });
+    if (!counter) throw new NotFoundException("Counter not found");
+  }
+
+  private async assertUserInOrganization(userId: string, organizationId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId },
+      select: { id: true }
+    });
+    if (!user) throw new NotFoundException("User not found");
   }
 }

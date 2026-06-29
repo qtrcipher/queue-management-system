@@ -23,4 +23,36 @@ body:
       label: Expected behavior
     validations:
       required: true
-
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Paste the release version, image tag, or commit SHA.
+      placeholder: "0.1.0 or abc1234"
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment type
+      options:
+        - Local Docker Compose
+        - Local pnpm dev
+        - Public demo stack
+        - Self-hosted production
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include browser, operating system, Node/pnpm versions, and relevant container names.
+      placeholder: "Chrome 126 on macOS, Docker Compose v2.27, Node 22"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Add sanitized API/web logs, console errors, screenshots, or recordings.

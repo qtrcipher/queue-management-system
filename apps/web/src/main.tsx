@@ -1,5 +1,6 @@
 import React, { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import type { TFunction } from "i18next";
 import { ArrowRightLeft, BarChart3, Building2, CalendarClock, CheckCircle2, Download, Languages, Mail, Monitor, RotateCcw, Ticket, Trash2, Undo2, UserRound, UsersRound, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
@@ -118,8 +119,8 @@ function App() {
   }, [branch]);
 
   useEffect(() => {
-    document.title = `${pageTitle(path)} | QMS`;
-  }, [path]);
+    document.title = `${pageTitle(path, t)} | QMS`;
+  }, [path, t]);
 
   async function refreshSnapshot(branchId: string) {
     const data = await api<Snapshot>(`/display/${branchId}`);
@@ -130,7 +131,7 @@ function App() {
 
   return (
     <>
-      <a className="skip-link" href="#main-content">Skip to main content</a>
+      <a className="skip-link" href="#main-content">{t("skipToMain")}</a>
       <Shell
         user={user}
         branch={branch}
@@ -165,7 +166,7 @@ function Shell({ user, branch, path, onLanguage }: { user: User | null; branch: 
         <Ticket size={24} aria-hidden="true" />
         <span>QMS</span>
       </a>
-      <nav aria-label="Primary">
+      <nav aria-label={t("primaryNav")}>
         {navItems.map((item) => (
           <a key={item.href} href={item.href} aria-current={item.active ? "page" : undefined}>
             {item.label}
@@ -175,7 +176,7 @@ function Shell({ user, branch, path, onLanguage }: { user: User | null; branch: 
       <div className="shell-actions">
         <span>{branchName || t("mainBranch")}</span>
         {user ? <span>{user.name}</span> : null}
-        <button className="icon-button" onClick={onLanguage} aria-label="Change language">
+        <button className="icon-button" onClick={onLanguage} aria-label={t("changeLanguage")}>
           <Languages size={18} aria-hidden="true" />
         </button>
       </div>
@@ -184,6 +185,7 @@ function Shell({ user, branch, path, onLanguage }: { user: User | null; branch: 
 }
 
 function LoginPanel({ onLogin }: { onLogin: (user: User) => void }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("admin12345");
   const [error, setError] = useState("");
@@ -195,7 +197,7 @@ function LoginPanel({ onLogin }: { onLogin: (user: User) => void }) {
       const user = await api<User>("/auth/login", { method: "POST", body: { email, password } });
       onLogin(user);
     } catch {
-      setError("Login failed. Check the email and password.");
+      setError(t("loginFailed"));
     }
   }
 
@@ -203,19 +205,19 @@ function LoginPanel({ onLogin }: { onLogin: (user: User) => void }) {
     <section className="auth-panel">
       <div className="panel-title">
         <UserRound size={18} />
-        <h1>Sign in</h1>
+        <h1>{t("signIn")}</h1>
       </div>
       <form onSubmit={(event) => void submit(event)} className="form-grid">
         <label>
-          Email
+          {t("email")}
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" aria-invalid={Boolean(error)} required />
         </label>
         <label>
-          Password
+          {t("password")}
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" aria-invalid={Boolean(error)} required />
         </label>
         {error ? <p className="form-error" role="alert">{error}</p> : null}
-        <button className="primary-button">Sign in</button>
+        <button className="primary-button">{t("signIn")}</button>
       </form>
     </section>
   );
@@ -244,7 +246,7 @@ function KioskPage({ branch, setMessage }: AppContext) {
       }
     });
     setCreatedTicket(ticket);
-    setMessage(`Ticket ${ticket.code} created`);
+    setMessage(t("ticketCreated", { code: ticket.code }));
   }
 
   return (
@@ -254,15 +256,15 @@ function KioskPage({ branch, setMessage }: AppContext) {
         <p>{t("subtitle")}</p>
         <div className="customer-fields">
           <label>
-            Name
+            {t("name")}
             <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} autoComplete="name" />
           </label>
           <label>
-            Email
+            {t("email")}
             <input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} autoComplete="email" />
           </label>
           <label>
-            Phone
+            {t("phone")}
             <input type="tel" value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} autoComplete="tel" />
           </label>
         </div>
@@ -280,13 +282,13 @@ function KioskPage({ branch, setMessage }: AppContext) {
           <>
             <span>{t("yourTicket")}</span>
             <strong>{createdTicket.code}</strong>
-            <QrPanel value={ticketUrl} label="Scan to track your place" />
-            <a href={`/ticket/${createdTicket.id}`}>Track ticket</a>
+            <QrPanel value={ticketUrl} label={t("scanTrackPlace")} />
+            <a href={`/ticket/${createdTicket.id}`}>{t("trackTicket")}</a>
           </>
         ) : (
           <>
             <span>{t("customer")}</span>
-            <QrPanel value={joinUrl} label="Scan to join from your phone" />
+            <QrPanel value={joinUrl} label={t("scanJoinPhone")} />
             <small>{new URL(joinUrl).pathname}</small>
           </>
         )}
@@ -307,7 +309,7 @@ function StaffPage(context: AppContext) {
   }, [branch]);
 
   if (!user) return <LoginPanel onLogin={setUser} />;
-  if (!branch) return <EmptyState label="No branch configured." />;
+  if (!branch) return <EmptyState label={t("noBranchConfigured")} />;
 
   async function callNext(serviceId: string) {
     if (!branch) return;
@@ -315,21 +317,21 @@ function StaffPage(context: AppContext) {
       method: "POST",
       body: { counterId: selectedCounterId || undefined }
     });
-    setMessage(ticket ? `Called ${ticket.code}` : "No waiting tickets");
+    setMessage(ticket ? t("calledTicket", { code: ticket.code }) : t("noWaitingTickets"));
     await refreshSnapshot(branch.id);
   }
 
   async function action(ticketId: string, actionName: "start" | "complete" | "no-show" | "recall" | "requeue" | "cancel") {
     if (!branch) return;
     await api<TicketRecord>(`/staff/tickets/${ticketId}/${actionName}`, { method: "POST" });
-    setMessage("Ticket updated");
+    setMessage(t("ticketUpdated"));
     await refreshSnapshot(branch.id);
   }
 
   async function transfer(ticketId: string, serviceId: string) {
     if (!branch || !serviceId) return;
     await api<TicketRecord>(`/staff/tickets/${ticketId}/transfer`, { method: "POST", body: { serviceId } });
-    setMessage("Ticket transferred");
+    setMessage(t("ticketTransferred"));
     await refreshSnapshot(branch.id);
   }
 
@@ -338,7 +340,7 @@ function StaffPage(context: AppContext) {
       <h1 className="sr-only">{t("staff")}</h1>
       <Panel title={t("staff")} icon={<UsersRound size={18} />}>
         <label className="counter-selector">
-          Counter
+          {t("counter")}
           <select value={selectedCounterId} onChange={(event) => setSelectedCounterId(event.target.value)}>
             {branch.counters.map((counter) => (
               <option key={counter.id} value={counter.id}>{localName(counter, i18n.language)}</option>
@@ -353,7 +355,7 @@ function StaffPage(context: AppContext) {
           ))}
         </div>
       </Panel>
-      <Panel title="Active tickets" icon={<Ticket size={18} />}>
+      <Panel title={t("activeTickets")} icon={<Ticket size={18} />}>
         <TicketStack tickets={activeTickets} services={branch.services} onAction={action} onTransfer={transfer} />
       </Panel>
       <Panel title={t("waiting")} icon={<RotateCcw size={18} />}>
@@ -377,17 +379,17 @@ function DisplayPage({ branch, snapshot }: AppContext) {
         {activeTickets.map((ticket) => (
           <div className="display-ticket" key={ticket.id}>
             <strong>{ticket.code}</strong>
-            <span>{ticket.counter?.nameEn ?? "Counter"}</span>
+            <span>{localName(ticket.counter, i18n.language) || t("counter")}</span>
           </div>
         ))}
-        {activeTickets.length === 0 ? <EmptyState label="No tickets called yet." /> : null}
+        {activeTickets.length === 0 ? <EmptyState label={t("noTicketsCalled")} /> : null}
       </div>
     </section>
   );
 }
 
 function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [branchName, setBranchName] = useState("");
@@ -476,7 +478,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     });
     setBranchName("");
     setBranchSlug("");
-    setMessage("Branch created");
+    setMessage(t("branchCreated"));
     await loadAdmin(created.id);
   }
 
@@ -489,7 +491,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     });
     setServiceName("");
     setServicePrefix("");
-    setMessage("Service created");
+    setMessage(t("serviceCreated"));
     await loadAdmin(selectedBranch.id);
   }
 
@@ -501,7 +503,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
       body: { nameEn: counterName, nameAr: counterName }
     });
     setCounterName("");
-    setMessage("Counter created");
+    setMessage(t("counterCreated"));
     await loadAdmin(selectedBranch.id);
   }
 
@@ -515,7 +517,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     setUserEmail("");
     setUserPassword("");
     setUserRole("AGENT");
-    setMessage("User created");
+    setMessage(t("userCreated"));
     await loadAdmin(selectedBranch?.id);
   }
 
@@ -537,7 +539,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     setAppointmentEmail("");
     setAppointmentPhone("");
     setAppointmentTime(defaultAppointmentInputValue());
-    setMessage("Appointment scheduled");
+    setMessage(t("appointmentScheduled"));
     await loadAdmin(selectedBranch.id);
   }
 
@@ -554,12 +556,12 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     setOverview((current) => current?.organization
       ? { ...current, organization: { ...current.organization, ticketRetentionDays: updated.ticketRetentionDays } }
       : current);
-    setMessage("Retention settings updated");
+    setMessage(t("retentionUpdated"));
   }
 
   async function purgeTickets() {
     const result = await api<PurgeResult>("/admin/maintenance/purge-tickets", { method: "POST" });
-    setMessage(`${result.deleted} tickets purged`);
+    setMessage(t("ticketsPurged", { count: result.deleted }));
     await loadAdmin(selectedBranch?.id);
   }
 
@@ -569,7 +571,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
       method: "PATCH",
       body: notificationSettings
     });
-    setMessage("Notification settings updated");
+    setMessage(t("notificationsUpdated"));
     await loadAdmin(selectedBranch?.id);
   }
 
@@ -596,55 +598,55 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
     setAnalyticsEnd(end);
     const data = await api<AnalyticsSummary>(`/analytics/summary${query ? `?${query}` : ""}`);
     setAnalytics(data);
-    setMessage("Analytics filters applied");
+    setMessage(t("analyticsApplied"));
   }
 
   return (
     <section className="page-grid">
-      <h1 className="sr-only">Admin</h1>
-      <Panel title="Today" icon={<BarChart3 size={18} />}>
+      <h1 className="sr-only">{t("admin")}</h1>
+      <Panel title={t("today")} icon={<BarChart3 size={18} />}>
         <form className="analytics-filters" onSubmit={(event) => void applyAnalyticsFilters(event)}>
           <label>
-            Analytics branch
+            {t("analyticsBranch")}
             <select name="analyticsBranchId" value={analyticsBranchId} onChange={(event) => setAnalyticsBranchId(event.target.value)}>
-              <option value="">All branches</option>
+              <option value="">{t("allBranches")}</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>{localName(branch, i18n.language)}</option>
               ))}
             </select>
           </label>
           <label>
-            Start date
+            {t("startDate")}
             <input type="date" name="analyticsStart" value={analyticsStart} onChange={(event) => setAnalyticsStart(event.target.value)} />
           </label>
           <label>
-            End date
+            {t("endDate")}
             <input type="date" name="analyticsEnd" value={analyticsEnd} onChange={(event) => setAnalyticsEnd(event.target.value)} />
           </label>
-          <button className="primary-button">Apply filters</button>
+          <button className="primary-button">{t("applyFilters")}</button>
         </form>
         <div className="metric-grid">
-          <Metric label="Issued" value={analytics?.totals.issued ?? 0} />
-          <Metric label="Waiting" value={analytics?.totals.waiting ?? 0} />
-          <Metric label="Completed" value={analytics?.totals.completed ?? 0} />
-          <Metric label="No-show" value={`${analytics?.totals.noShowRate ?? 0}%`} />
-          <Metric label="Avg wait" value={`${analytics?.totals.averageWaitMinutes ?? 0}m`} />
-          <Metric label="Avg service" value={`${analytics?.totals.averageServiceMinutes ?? 0}m`} />
+          <Metric label={t("issued")} value={analytics?.totals.issued ?? 0} />
+          <Metric label={t("waiting")} value={analytics?.totals.waiting ?? 0} />
+          <Metric label={t("completed")} value={analytics?.totals.completed ?? 0} />
+          <Metric label={t("noShow")} value={`${analytics?.totals.noShowRate ?? 0}%`} />
+          <Metric label={t("avgWait")} value={`${analytics?.totals.averageWaitMinutes ?? 0}m`} />
+          <Metric label={t("avgService")} value={`${analytics?.totals.averageServiceMinutes ?? 0}m`} />
         </div>
-        <div className="branch-dashboard" aria-label="Branch dashboard">
+        <div className="branch-dashboard" aria-label={t("branchDashboard")}>
           <div className="dashboard-header">
-            <strong>Branch dashboard</strong>
-            <span>{analytics?.branchDashboard.length ?? 0} branches</span>
+            <strong>{t("branchDashboard")}</strong>
+            <span>{t("branchesCount", { count: analytics?.branchDashboard.length ?? 0 })}</span>
           </div>
-          <div className="dashboard-table" role="table" aria-label="Branch dashboard">
+          <div className="dashboard-table" role="table" aria-label={t("branchDashboard")}>
             <div className="dashboard-row dashboard-heading" role="row">
-              <span role="columnheader">Branch</span>
-              <span role="columnheader">Issued</span>
-              <span role="columnheader">Waiting</span>
-              <span role="columnheader">Serving</span>
-              <span role="columnheader">Completed</span>
-              <span role="columnheader">Open counters</span>
-              <span role="columnheader">Avg wait</span>
+              <span role="columnheader">{t("branch")}</span>
+              <span role="columnheader">{t("issued")}</span>
+              <span role="columnheader">{t("waiting")}</span>
+              <span role="columnheader">{t("servingColumn")}</span>
+              <span role="columnheader">{t("completed")}</span>
+              <span role="columnheader">{t("openCounters")}</span>
+              <span role="columnheader">{t("avgWait")}</span>
             </div>
             {analytics?.branchDashboard.map((row) => (
               <div className="dashboard-row" role="row" key={row.branchId}>
@@ -664,13 +666,13 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         </div>
         <a className="download-link" href={analyticsCsvPath}>
           <Download size={16} />
-          Export CSV
+          {t("exportCsv")}
         </a>
       </Panel>
-      <Panel title="Maintenance" icon={<Trash2 size={18} />}>
+      <Panel title={t("maintenance")} icon={<Trash2 size={18} />}>
         <form onSubmit={(event) => void updateRetention(event)} className="form-grid">
           <label>
-            Ticket retention days
+            {t("ticketRetentionDays")}
             <input
               type="number"
               min={1}
@@ -681,30 +683,30 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
               required
             />
           </label>
-          <button className="primary-button">Save retention</button>
+          <button className="primary-button">{t("saveRetention")}</button>
         </form>
         <button className="danger-button" onClick={() => void purgeTickets()}>
-          Purge old terminal tickets
+          {t("purgeOldTickets")}
         </button>
       </Panel>
-      <Panel title="Appointments" icon={<CalendarClock size={18} />}>
-        <div className="appointment-list" aria-label="Upcoming appointments">
+      <Panel title={t("appointments")} icon={<CalendarClock size={18} />}>
+        <div className="appointment-list" aria-label={t("upcomingAppointments")}>
           {(overview?.appointments ?? [])
             .filter((appointment) => !selectedBranch || appointment.branch.id === selectedBranch.id)
             .map((appointment) => (
               <div key={appointment.id} className="appointment-row">
                 <strong>{appointment.code}</strong>
-                <span>{appointment.customerName || "Guest"} · {appointment.service.prefix} · {formatAppointmentTime(appointment.scheduledFor)}</span>
+                <span>{appointment.customerName || t("guest")} · {appointment.service.prefix} · {formatAppointmentTime(appointment.scheduledFor, t)}</span>
                 <small>{appointment.status}</small>
               </div>
             ))}
           {(overview?.appointments ?? []).filter((appointment) => !selectedBranch || appointment.branch.id === selectedBranch.id).length === 0
-            ? <EmptyState label="No active appointments." />
+            ? <EmptyState label={t("noActiveAppointments")} />
             : null}
         </div>
         <form onSubmit={(event) => void scheduleAppointment(event)} className="form-grid">
           <label>
-            Service
+            {t("service")}
             <select value={appointmentServiceId} onChange={(event) => setAppointmentServiceId(event.target.value)} required>
               {selectedBranch?.services.map((service) => (
                 <option key={service.id} value={service.id}>{service.prefix} · {localName(service, i18n.language)}</option>
@@ -712,26 +714,26 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
             </select>
           </label>
           <label>
-            Appointment time
+            {t("appointmentTime")}
             <input type="datetime-local" value={appointmentTime} onChange={(event) => setAppointmentTime(event.target.value)} required />
           </label>
-          <label>Name<input value={appointmentName} onChange={(event) => setAppointmentName(event.target.value)} minLength={2} required /></label>
+          <label>{t("name")}<input value={appointmentName} onChange={(event) => setAppointmentName(event.target.value)} minLength={2} required /></label>
           <div className="inline-form notification-server-fields">
-            <label>Email<input type="email" value={appointmentEmail} onChange={(event) => setAppointmentEmail(event.target.value)} /></label>
-            <label>Phone<input type="tel" value={appointmentPhone} onChange={(event) => setAppointmentPhone(event.target.value)} /></label>
-            <button className="primary-button">Schedule</button>
+            <label>{t("email")}<input type="email" value={appointmentEmail} onChange={(event) => setAppointmentEmail(event.target.value)} /></label>
+            <label>{t("phone")}<input type="tel" value={appointmentPhone} onChange={(event) => setAppointmentPhone(event.target.value)} /></label>
+            <button className="primary-button">{t("schedule")}</button>
           </div>
         </form>
       </Panel>
-      <Panel title="Notifications" icon={<Mail size={18} />}>
+      <Panel title={t("notifications")} icon={<Mail size={18} />}>
         <form onSubmit={(event) => void updateNotifications(event)} className="form-grid">
           <div className="inline-form notification-server-fields">
             <label>
-              SMTP host
+              {t("smtpHost")}
               <input value={notificationSettings.smtpHost} onChange={(event) => updateNotificationField("smtpHost", event.target.value)} required />
             </label>
             <label>
-              SMTP port
+              {t("smtpPort")}
               <input
                 type="number"
                 min={1}
@@ -743,25 +745,25 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
             </label>
           </div>
           <label>
-            From address
+            {t("fromAddress")}
             <input value={notificationSettings.smtpFrom} onChange={(event) => updateNotificationField("smtpFrom", event.target.value)} required />
           </label>
           <label>
-            Email subject
+            {t("emailSubject")}
             <input value={notificationSettings.ticketEmailSubject} onChange={(event) => updateNotificationField("ticketEmailSubject", event.target.value)} required />
           </label>
           <label>
-            Email body
+            {t("emailBody")}
             <textarea rows={4} value={notificationSettings.ticketEmailBody} onChange={(event) => updateNotificationField("ticketEmailBody", event.target.value)} required />
           </label>
           <label>
-            SMS / WhatsApp template
+            {t("smsTemplate")}
             <textarea rows={2} value={notificationSettings.ticketSmsTemplate} onChange={(event) => updateNotificationField("ticketSmsTemplate", event.target.value)} required />
           </label>
-          <button className="primary-button">Save notifications</button>
+          <button className="primary-button">{t("saveNotifications")}</button>
         </form>
       </Panel>
-      <Panel title="Branches" icon={<Building2 size={18} />}>
+      <Panel title={t("branches")} icon={<Building2 size={18} />}>
         <div className="table-list">
           {branches.map((branch) => (
             <div key={branch.id}>
@@ -772,7 +774,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
         </div>
         {branches.length ? (
           <label className="branch-selector">
-            Manage branch
+            {t("manageBranch")}
             <select value={selectedBranch?.id ?? ""} onChange={(event) => changeManagedBranch(event.target.value)}>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>{localName(branch, i18n.language)}</option>
@@ -781,12 +783,12 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
           </label>
         ) : null}
         <form onSubmit={(event) => void createBranch(event)} className="form-grid">
-          <label>Branch name<input value={branchName} onChange={(event) => setBranchName(event.target.value)} required /></label>
-          <label>Slug<input value={branchSlug} onChange={(event) => setBranchSlug(event.target.value)} pattern="[a-z0-9-]+" required /></label>
-          <button className="primary-button">Add branch</button>
+          <label>{t("branchName")}<input value={branchName} onChange={(event) => setBranchName(event.target.value)} required /></label>
+          <label>{t("slug")}<input value={branchSlug} onChange={(event) => setBranchSlug(event.target.value)} pattern="[a-z0-9-]+" required /></label>
+          <button className="primary-button">{t("addBranch")}</button>
         </form>
       </Panel>
-      <Panel title="Services" icon={<Ticket size={18} />}>
+      <Panel title={t("services")} icon={<Ticket size={18} />}>
         <div className="record-list">
           {selectedBranch?.services.map((service) => (
             <ServiceEditor
@@ -795,19 +797,19 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
               issued={analytics?.services.find((row) => row.serviceId === service.id)?.issued ?? 0}
               onSave={async (serviceId, body) => {
                 await api<Service>(`/admin/services/${serviceId}`, { method: "PATCH", body });
-                setMessage("Service updated");
+                setMessage(t("serviceUpdated"));
                 await loadAdmin(selectedBranch.id);
               }}
             />
           ))}
         </div>
         <form onSubmit={(event) => void createService(event)} className="form-grid inline-form">
-          <label>Name<input value={serviceName} onChange={(event) => setServiceName(event.target.value)} required /></label>
-          <label>Prefix<input value={servicePrefix} onChange={(event) => setServicePrefix(event.target.value.toUpperCase())} pattern="[A-Z0-9]{1,4}" required /></label>
-          <button className="primary-button">Add service</button>
+          <label>{t("name")}<input value={serviceName} onChange={(event) => setServiceName(event.target.value)} required /></label>
+          <label>{t("prefix")}<input value={servicePrefix} onChange={(event) => setServicePrefix(event.target.value.toUpperCase())} pattern="[A-Z0-9]{1,4}" required /></label>
+          <button className="primary-button">{t("addService")}</button>
         </form>
       </Panel>
-      <Panel title="Counters" icon={<Monitor size={18} />}>
+      <Panel title={t("counters")} icon={<Monitor size={18} />}>
         <div className="record-list">
           {selectedBranch?.counters.map((counter) => (
             <CounterEditor
@@ -815,18 +817,18 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
               counter={counter}
               onSave={async (counterId, body) => {
                 await api<Counter>(`/admin/counters/${counterId}`, { method: "PATCH", body });
-                setMessage("Counter updated");
+                setMessage(t("counterUpdated"));
                 await loadAdmin(selectedBranch.id);
               }}
             />
           ))}
         </div>
         <form onSubmit={(event) => void createCounter(event)} className="form-grid">
-          <label>Counter name<input value={counterName} onChange={(event) => setCounterName(event.target.value)} required /></label>
-          <button className="primary-button">Add counter</button>
+          <label>{t("counterName")}<input value={counterName} onChange={(event) => setCounterName(event.target.value)} required /></label>
+          <button className="primary-button">{t("addCounter")}</button>
         </form>
       </Panel>
-      <Panel title="Users" icon={<UserRound size={18} />}>
+      <Panel title={t("users")} icon={<UserRound size={18} />}>
         <div className="record-list">
           {overview?.organization?.users.map((account) => (
             <UserEditor
@@ -834,26 +836,26 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
               account={account}
               onSave={async (userId, body) => {
                 await api<User>(`/admin/users/${userId}`, { method: "PATCH", body });
-                setMessage("User updated");
+                setMessage(t("userUpdated"));
                 await loadAdmin(selectedBranch?.id);
               }}
             />
           ))}
         </div>
         <form onSubmit={(event) => void createUser(event)} className="form-grid">
-          <label>Name<input value={userName} onChange={(event) => setUserName(event.target.value)} required /></label>
-          <label>Email<input type="email" value={userEmail} onChange={(event) => setUserEmail(event.target.value)} required /></label>
-          <label>Password<input type="password" minLength={8} value={userPassword} onChange={(event) => setUserPassword(event.target.value)} required /></label>
+          <label>{t("name")}<input value={userName} onChange={(event) => setUserName(event.target.value)} required /></label>
+          <label>{t("email")}<input type="email" value={userEmail} onChange={(event) => setUserEmail(event.target.value)} required /></label>
+          <label>{t("password")}<input type="password" minLength={8} value={userPassword} onChange={(event) => setUserPassword(event.target.value)} required /></label>
           <label>
-            Role
+            {t("role")}
             <select value={userRole} onChange={(event) => setUserRole(event.target.value)}>
-              <option value="ADMIN">Admin</option>
-              <option value="BRANCH_MANAGER">Branch manager</option>
-              <option value="AGENT">Agent</option>
-              <option value="DISPLAY">Display</option>
+              <option value="ADMIN">{t("admin")}</option>
+              <option value="BRANCH_MANAGER">{t("branchManager")}</option>
+              <option value="AGENT">{t("agent")}</option>
+              <option value="DISPLAY">{t("display")}</option>
             </select>
           </label>
-          <button className="primary-button">Add user</button>
+          <button className="primary-button">{t("addUser")}</button>
         </form>
       </Panel>
     </section>
@@ -861,6 +863,7 @@ function AdminPage({ user, setUser, setBranch, setMessage }: AppContext) {
 }
 
 function ServiceEditor({ service, issued, onSave }: { service: Service; issued: number; onSave: (serviceId: string, body: { nameEn: string; nameAr: string; isActive: boolean }) => Promise<void> }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(service.nameEn);
   const [isActive, setIsActive] = useState(service.isActive !== false);
 
@@ -875,25 +878,26 @@ function ServiceEditor({ service, issued, onSave }: { service: Service; issued: 
   }
 
   return (
-    <form className="record-row" aria-label={`Edit service ${service.prefix}`} onSubmit={(event) => void submit(event)}>
+    <form className="record-row" aria-label={t("editService", { prefix: service.prefix })} onSubmit={(event) => void submit(event)}>
       <div className="record-meta">
         <strong>{service.prefix}</strong>
-        <span>{issued} issued</span>
+        <span>{t("issuedCount", { count: issued })}</span>
       </div>
       <label>
-        Name
+        {t("name")}
         <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required />
       </label>
       <label className="check-row">
         <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-        Active
+        {t("active")}
       </label>
-      <button className="primary-button">Save</button>
+      <button className="primary-button">{t("save")}</button>
     </form>
   );
 }
 
 function CounterEditor({ counter, onSave }: { counter: Counter; onSave: (counterId: string, body: { nameEn: string; nameAr: string; isOpen: boolean }) => Promise<void> }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(counter.nameEn);
   const [isOpen, setIsOpen] = useState(counter.isOpen !== false);
 
@@ -908,25 +912,26 @@ function CounterEditor({ counter, onSave }: { counter: Counter; onSave: (counter
   }
 
   return (
-    <form className="record-row" aria-label={`Edit counter ${counter.nameEn}`} onSubmit={(event) => void submit(event)}>
+    <form className="record-row" aria-label={t("editCounter", { name: counter.nameEn })} onSubmit={(event) => void submit(event)}>
       <div className="record-meta">
         <strong>{counter.nameEn}</strong>
-        <span>{isOpen ? "Open" : "Closed"}</span>
+        <span>{isOpen ? t("open") : t("closed")}</span>
       </div>
       <label>
-        Name
+        {t("name")}
         <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required />
       </label>
       <label className="check-row">
         <input type="checkbox" checked={isOpen} onChange={(event) => setIsOpen(event.target.checked)} />
-        Open
+        {t("open")}
       </label>
-      <button className="primary-button">Save</button>
+      <button className="primary-button">{t("save")}</button>
     </form>
   );
 }
 
 function UserEditor({ account, onSave }: { account: User; onSave: (userId: string, body: { name: string; role: string; password?: string }) => Promise<void> }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(account.name);
   const [role, setRole] = useState(account.role);
   const [password, setPassword] = useState("");
@@ -943,30 +948,30 @@ function UserEditor({ account, onSave }: { account: User; onSave: (userId: strin
   }
 
   return (
-    <form className="record-row user-record-row" aria-label={`Edit user ${account.email}`} onSubmit={(event) => void submit(event)}>
+    <form className="record-row user-record-row" aria-label={t("editUser", { email: account.email })} onSubmit={(event) => void submit(event)}>
       <div className="record-meta">
         <strong>{account.email}</strong>
         <span>{account.role}</span>
       </div>
       <label>
-        Name
+        {t("name")}
         <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required />
       </label>
       <label>
-        Role
+        {t("role")}
         <select value={role} onChange={(event) => setRole(event.target.value)}>
-          <option value="OWNER">Owner</option>
-          <option value="ADMIN">Admin</option>
-          <option value="BRANCH_MANAGER">Branch manager</option>
-          <option value="AGENT">Agent</option>
-          <option value="DISPLAY">Display</option>
+          <option value="OWNER">{t("owner")}</option>
+          <option value="ADMIN">{t("admin")}</option>
+          <option value="BRANCH_MANAGER">{t("branchManager")}</option>
+          <option value="AGENT">{t("agent")}</option>
+          <option value="DISPLAY">{t("display")}</option>
         </select>
       </label>
       <label>
-        New password
-        <input type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Leave blank to keep" />
+        {t("newPassword")}
+        <input type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={t("leaveBlankToKeep")} />
       </label>
-      <button className="primary-button">Save</button>
+      <button className="primary-button">{t("save")}</button>
     </form>
   );
 }
@@ -981,7 +986,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 }
 
 function TicketPage({ ticketId }: { ticketId: string }) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const [status, setStatus] = useState<TicketStatusView | null>(null);
 
   useEffect(() => {
@@ -991,33 +996,33 @@ function TicketPage({ ticketId }: { ticketId: string }) {
     return () => window.clearInterval(interval);
   }, [ticketId]);
 
-  if (!status) return <EmptyState label="Loading ticket..." />;
+  if (!status) return <EmptyState label={t("loadingTicket")} />;
 
   const trackingUrl = `${window.location.origin}/ticket/${ticketId}`;
   const ticket = status.ticket;
 
   return (
     <section className="ticket-page">
-      <h1 className="sr-only">Ticket {ticket.code} status</h1>
-      <span>Your ticket</span>
+      <h1 className="sr-only">{t("ticketStatusTitle", { code: ticket.code })}</h1>
+      <span>{t("yourTicket")}</span>
       <strong>{ticket.code}</strong>
       <p>{ticket.status} · {localName(status.service, i18n.language)}</p>
-      {ticket.source === "APPOINTMENT" ? <p className="appointment-badge">Appointment · {formatAppointmentTime(ticket.scheduledFor)}</p> : null}
+      {ticket.source === "APPOINTMENT" ? <p className="appointment-badge">{t("appointment")} · {formatAppointmentTime(ticket.scheduledFor, t)}</p> : null}
       <div className="status-metrics">
         <div>
-          <span>Position</span>
+          <span>{t("position")}</span>
           <strong>{status.position || "-"}</strong>
         </div>
         <div>
-          <span>Ahead</span>
+          <span>{t("ahead")}</span>
           <strong>{status.numberAhead}</strong>
         </div>
         <div>
-          <span>ETA</span>
+          <span>{t("eta")}</span>
           <strong>{status.estimatedWaitMinutes}m</strong>
         </div>
       </div>
-      <QrPanel value={trackingUrl} label="Ticket tracking link" />
+      <QrPanel value={trackingUrl} label={t("ticketTrackingLink")} />
       <div className="table-list event-list">
         {ticket.events?.map((event, index) => (
           <div key={`${event.status}-${index}`}>
@@ -1050,7 +1055,9 @@ function TicketStack({
   onAction?: (ticketId: string, action: "start" | "complete" | "no-show" | "recall" | "requeue" | "cancel") => Promise<void>;
   onTransfer?: (ticketId: string, serviceId: string) => Promise<void>;
 }) {
-  if (tickets.length === 0) return <EmptyState label="No tickets in this list." />;
+  const { t } = useTranslation();
+
+  if (tickets.length === 0) return <EmptyState label={t("noTicketsInList")} />;
 
   return (
     <div className="ticket-stack">
@@ -1059,26 +1066,26 @@ function TicketStack({
           <strong>{ticket.code}</strong>
           <span>
             {ticket.status} · {ticket.service?.prefix ?? ""}
-            {ticket.source === "APPOINTMENT" ? ` · Appointment ${formatAppointmentTime(ticket.scheduledFor)}` : ""}
+            {ticket.source === "APPOINTMENT" ? ` · ${t("appointment")} ${formatAppointmentTime(ticket.scheduledFor, t)}` : ""}
           </span>
-          {onAction && ticket.status === "CALLED" ? <IconAction label="Start" icon={<CheckCircle2 size={16} />} onClick={() => void onAction(ticket.id, "start")} /> : null}
-          {onAction && ticket.status === "SERVING" ? <IconAction label="Complete" icon={<CheckCircle2 size={16} />} onClick={() => void onAction(ticket.id, "complete")} /> : null}
-          {onAction && ticket.status === "CALLED" ? <IconAction label="Recall" icon={<RotateCcw size={16} />} onClick={() => void onAction(ticket.id, "recall")} /> : null}
-          {onAction && ticket.status === "CALLED" ? <IconAction label="No-show" icon={<XCircle size={16} />} onClick={() => void onAction(ticket.id, "no-show")} /> : null}
-          {onAction && ["CALLED", "SERVING"].includes(ticket.status) ? <IconAction label="Requeue" icon={<Undo2 size={16} />} onClick={() => void onAction(ticket.id, "requeue")} /> : null}
-          {onAction && ["WAITING", "CALLED", "SERVING"].includes(ticket.status) ? <IconAction label="Cancel" icon={<XCircle size={16} />} onClick={() => void onAction(ticket.id, "cancel")} /> : null}
+          {onAction && ticket.status === "CALLED" ? <IconAction label={t("start")} icon={<CheckCircle2 size={16} />} onClick={() => void onAction(ticket.id, "start")} /> : null}
+          {onAction && ticket.status === "SERVING" ? <IconAction label={t("complete")} icon={<CheckCircle2 size={16} />} onClick={() => void onAction(ticket.id, "complete")} /> : null}
+          {onAction && ticket.status === "CALLED" ? <IconAction label={t("recall")} icon={<RotateCcw size={16} />} onClick={() => void onAction(ticket.id, "recall")} /> : null}
+          {onAction && ticket.status === "CALLED" ? <IconAction label={t("noShow")} icon={<XCircle size={16} />} onClick={() => void onAction(ticket.id, "no-show")} /> : null}
+          {onAction && ["CALLED", "SERVING"].includes(ticket.status) ? <IconAction label={t("requeue")} icon={<Undo2 size={16} />} onClick={() => void onAction(ticket.id, "requeue")} /> : null}
+          {onAction && ["WAITING", "CALLED", "SERVING"].includes(ticket.status) ? <IconAction label={t("cancel")} icon={<XCircle size={16} />} onClick={() => void onAction(ticket.id, "cancel")} /> : null}
           {onTransfer ? (
             <label className="transfer-control">
-              <span className="sr-only">Transfer {ticket.code}</span>
+              <span className="sr-only">{t("transferTicket", { code: ticket.code })}</span>
               <ArrowRightLeft size={16} aria-hidden="true" />
               <select
-                aria-label={`Transfer ${ticket.code}`}
+                aria-label={t("transferTicket", { code: ticket.code })}
                 defaultValue=""
                 onChange={(event) => {
                   void onTransfer(ticket.id, event.target.value);
                 }}
               >
-                <option value="" disabled>Transfer</option>
+                <option value="" disabled>{t("transfer")}</option>
                 {services
                   .filter((service) => service.id !== ticket.service?.id)
                   .map((service) => (
@@ -1156,12 +1163,12 @@ function localName(value: { nameEn: string; nameAr: string } | null | undefined,
   return language === "ar" ? value.nameAr : value.nameEn;
 }
 
-function pageTitle(path: string) {
-  if (path.startsWith("/admin")) return "Admin";
-  if (path.startsWith("/staff")) return "Staff";
-  if (path.startsWith("/display")) return "Display";
-  if (path.startsWith("/ticket/")) return "Ticket status";
-  return "Kiosk";
+function pageTitle(path: string, t: TFunction) {
+  if (path.startsWith("/admin")) return t("admin");
+  if (path.startsWith("/staff")) return t("staff");
+  if (path.startsWith("/display")) return t("display");
+  if (path.startsWith("/ticket/")) return t("ticketStatusPage");
+  return t("kiosk");
 }
 
 function todayInputValue() {
@@ -1178,8 +1185,8 @@ function localDateTimeInputValue(date: Date) {
   return offsetDate.toISOString().slice(0, 16);
 }
 
-function formatAppointmentTime(value?: string | null) {
-  if (!value) return "unscheduled";
+function formatAppointmentTime(value: string | null | undefined, t: TFunction) {
+  if (!value) return t("unscheduled");
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short"

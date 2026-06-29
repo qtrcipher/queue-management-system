@@ -53,7 +53,7 @@ docker compose --env-file .env.demo -f docker-compose.demo.yml down -v
 docker compose --env-file .env.demo -f docker-compose.demo.yml up --build -d
 ```
 
-The API container reapplies the Prisma schema and seed data on startup.
+The demo Compose file sets `QMS_AUTO_DB_SYNC=true`, so the API container reapplies the Prisma schema and seed data on startup.
 
 ## Operations
 

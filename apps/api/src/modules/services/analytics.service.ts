@@ -41,11 +41,11 @@ function safeCsv(value: string | number | null | undefined) {
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async summary(start?: string, end?: string, branchId?: string) {
+  async summary(organizationId: string, start?: string, end?: string, branchId?: string) {
     const range = this.dateRange(start, end);
     const [tickets, branchDashboard] = await Promise.all([
-      this.ticketsInRange(range.start, range.end, branchId),
-      this.branchDashboard(range.start, range.end)
+      this.ticketsInRange(organizationId, range.start, range.end, branchId),
+      this.branchDashboard(organizationId, range.start, range.end)
     ]);
 
     const byStatus = tickets.reduce<Record<TicketStatus, number>>((acc, ticket) => {
@@ -120,9 +120,9 @@ export class AnalyticsService {
     };
   }
 
-  async ticketsCsv(start?: string, end?: string, branchId?: string) {
+  async ticketsCsv(organizationId: string, start?: string, end?: string, branchId?: string) {
     const range = this.dateRange(start, end);
-    const tickets = await this.ticketsInRange(range.start, range.end, branchId);
+    const tickets = await this.ticketsInRange(organizationId, range.start, range.end, branchId);
     const header = ["code", "status", "branch", "service", "counter", "issuedAt", "calledAt", "startedAt", "completedAt", "waitMinutes", "serviceMinutes"];
     const rows = tickets.map((ticket) => [
       ticket.code,
@@ -148,16 +148,17 @@ export class AnalyticsService {
     return { start: rangeStart, end: rangeEnd };
   }
 
-  private ticketsInRange(start: Date, end: Date, branchId?: string) {
+  private ticketsInRange(organizationId: string, start: Date, end: Date, branchId?: string) {
     return this.prisma.ticket.findMany({
-      where: { issuedAt: { gte: start, lt: end }, ...(branchId ? { branchId } : {}) },
+      where: { issuedAt: { gte: start, lt: end }, branch: { organizationId }, ...(branchId ? { branchId } : {}) },
       include: { branch: true, service: true, counter: true },
       orderBy: { issuedAt: "asc" }
     });
   }
 
-  private async branchDashboard(start: Date, end: Date) {
+  private async branchDashboard(organizationId: string, start: Date, end: Date) {
     const branches = await this.prisma.branch.findMany({
+      where: { organizationId },
       include: {
         counters: true,
         services: true,
